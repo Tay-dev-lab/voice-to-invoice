@@ -31,6 +31,11 @@
       padding: 1em;
       border-radius: 6px;
     }
+    #createPdfBtn {
+      background-color: #4CAF50;
+      color: white;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -39,14 +44,17 @@
   <input type="password" id="apiKeyInput" placeholder="Enter OpenAI API Key" />
   <button id="saveApiKeyBtn">🔐 Save API Key</button>
 
-  <h2 id="prompt">What type of invoice is this? ("Deposit" or "Works Completed")</h2>
+  <h2 id="prompt">Would you like to create an invoice?</h2>
 
-  <button id="startBtn">🎙️ Start Recording</button>
-  <button id="stopBtn" disabled>🛑 Stop Recording</button>
+  <button id="startInvoiceBtn">✅ Create Invoice</button>
 
-  <audio id="audioPlayback" controls></audio>
+  <button id="recordBtn" style="display: none;">🎙️ Start Recording</button>
+  <button id="stopBtn" disabled style="display: none;">🛑 Stop Recording</button>
 
-  <button id="uploadBtn" disabled>⬆️ Upload Voice Response</button>
+  <audio id="audioPlayback" controls style="display: none;"></audio>
+
+  <button id="createPdfBtn" style="display: none;">📄 Create Invoice PDF</button>
+  <button id="resetBtn" style="display: none;">🔄 Reset</button>
 
   <div id="transcription"></div>
   <div id="response"></div>
@@ -60,96 +68,128 @@
     const apiKeyInput = document.getElementById('apiKeyInput');
     const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
     const promptEl = document.getElementById('prompt');
-    const startBtn = document.getElementById('startBtn');
+    const startInvoiceBtn = document.getElementById('startInvoiceBtn');
+    const recordBtn = document.getElementById('recordBtn');
     const stopBtn = document.getElementById('stopBtn');
-    const uploadBtn = document.getElementById('uploadBtn');
     const audioPlayback = document.getElementById('audioPlayback');
     const transcriptionEl = document.getElementById('transcription');
     const responseEl = document.getElementById('response');
+    const createPdfBtn = document.getElementById('createPdfBtn');
+    const resetBtn = document.getElementById('resetBtn');
 
     window.onload = () => {
       const savedKey = localStorage.getItem('openai_api_key');
-      if (savedKey) {
-        apiKeyInput.value = savedKey;
-      }
+      if (savedKey) apiKeyInput.value = savedKey;
     };
 
     saveApiKeyBtn.onclick = () => {
       const key = apiKeyInput.value.trim();
       if (key) {
         localStorage.setItem('openai_api_key', key);
-        alert('✅ API key saved locally');
+        alert('✅ API key saved');
       }
     };
 
-    startBtn.onclick = async () => {
+    startInvoiceBtn.onclick = async () => {
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) return alert("❗Please save your API key first.");
+
+      await fetch('http://localhost:8000/start', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+
+      startInvoiceBtn.style.display = 'none';
+      recordBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'inline-block';
+      resetBtn.style.display = 'inline-block';
+      promptEl.innerText = "What is the recipient's name and address?";
+    };
+
+    recordBtn.onclick = async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
 
-      mediaRecorder.ondataavailable = event => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        audioPlayback.src = URL.createObjectURL(blob);
-        uploadBtn.disabled = false;
-      };
+      mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+      mediaRecorder.onstop = () => handleAudioUpload();
 
       mediaRecorder.start();
-      startBtn.disabled = true;
+      recordBtn.disabled = true;
       stopBtn.disabled = false;
     };
 
     stopBtn.onclick = () => {
       mediaRecorder.stop();
-      startBtn.disabled = false;
+      recordBtn.disabled = false;
       stopBtn.disabled = true;
     };
 
-    uploadBtn.onclick = async () => {
+    async function handleAudioUpload() {
       const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      audioPlayback.src = URL.createObjectURL(blob);
+      audioPlayback.style.display = 'block';
+
       const apiKey = apiKeyInput.value.trim();
-
-      if (!apiKey) {
-        alert("❗Please enter and save your OpenAI API key first.");
-        return;
-      }
-
       const formData = new FormData();
       formData.append('file', blob, 'recording.webm');
       formData.append('session_id', sessionId);
 
-      uploadBtn.textContent = '⏳ Uploading...';
-      uploadBtn.disabled = true;
-
       try {
         const response = await fetch('http://localhost:8000/step', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: formData,
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+          body: formData
         });
 
         const data = await response.json();
-
         transcriptionEl.innerText = "📝 Transcription:\n" + data.transcription;
         responseEl.innerText = "📦 Response:\n" + JSON.stringify(data.result, null, 2);
 
-        // Update prompt for next step
         if (data.next_prompt) {
           promptEl.innerText = data.next_prompt;
         }
 
-        // Allow new voice input
-        uploadBtn.textContent = '⬆️ Upload Voice Response';
-        uploadBtn.disabled = true;
+        if (data.items_collected && data.items_collected > 0) {
+          createPdfBtn.style.display = 'inline-block';
+        }
       } catch (err) {
         alert('❌ Upload failed: ' + err.message);
-        uploadBtn.textContent = '⬆️ Upload Voice Response';
       }
+    }
+
+    createPdfBtn.onclick = async () => {
+      const apiKey = apiKeyInput.value.trim();
+      const response = await fetch('http://localhost:8000/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    };
+
+    resetBtn.onclick = async () => {
+      await fetch('http://localhost:8000/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+
+      sessionId = crypto.randomUUID();
+      localStorage.setItem('session_id', sessionId);
+      location.reload();
     };
   </script>
 </body>
