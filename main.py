@@ -3,8 +3,26 @@ from whisper_gpt import transcribe_audio, extract_invoice_data, set_openai_key
 import uuid
 import os
 import shutil
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# Replace this with your actual GitHub Pages domain
+origins = [
+    "https://Tay-dev-lab.github.io",  # your GitHub Pages root
+    "https://Tay-dev-lab.github.io/voice-to-invoice",  # full path for subfolder use
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # use ["*"] for development only!
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
