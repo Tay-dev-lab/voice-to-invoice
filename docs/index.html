@@ -8,7 +8,7 @@
     body {
       font-family: sans-serif;
       padding: 2em;
-      max-width: 400px;
+      max-width: 600px;
       margin: auto;
       text-align: center;
     }
@@ -22,6 +22,15 @@
       margin-top: 1em;
       width: 100%;
     }
+    #transcription, #response {
+      margin-top: 1em;
+      text-align: left;
+      font-family: monospace;
+      white-space: pre-wrap;
+      background: #f0f0f0;
+      padding: 1em;
+      border-radius: 6px;
+    }
   </style>
 </head>
 <body>
@@ -30,27 +39,34 @@
   <input type="password" id="apiKeyInput" placeholder="Enter OpenAI API Key" />
   <button id="saveApiKeyBtn">🔐 Save API Key</button>
 
-  <hr />
+  <h2 id="prompt">What type of invoice is this? ("Deposit" or "Works Completed")</h2>
 
   <button id="startBtn">🎙️ Start Recording</button>
   <button id="stopBtn" disabled>🛑 Stop Recording</button>
 
   <audio id="audioPlayback" controls></audio>
 
-  <button id="uploadBtn" disabled>⬆️ Upload & Process</button>
+  <button id="uploadBtn" disabled>⬆️ Upload Voice Response</button>
+
+  <div id="transcription"></div>
+  <div id="response"></div>
 
   <script>
     let mediaRecorder;
     let audioChunks = [];
+    let sessionId = localStorage.getItem('session_id') || crypto.randomUUID();
+    localStorage.setItem('session_id', sessionId);
 
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const promptEl = document.getElementById('prompt');
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const uploadBtn = document.getElementById('uploadBtn');
     const audioPlayback = document.getElementById('audioPlayback');
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const transcriptionEl = document.getElementById('transcription');
+    const responseEl = document.getElementById('response');
 
-    // Load API key from localStorage
     window.onload = () => {
       const savedKey = localStorage.getItem('openai_api_key');
       if (savedKey) {
@@ -78,7 +94,6 @@
       mediaRecorder.onstop = () => {
         const blob = new Blob(audioChunks, { type: 'audio/webm' });
         audioPlayback.src = URL.createObjectURL(blob);
-        uploadBtn.dataset.blobUrl = audioPlayback.src;
         uploadBtn.disabled = false;
       };
 
@@ -104,12 +119,13 @@
 
       const formData = new FormData();
       formData.append('file', blob, 'recording.webm');
+      formData.append('session_id', sessionId);
 
       uploadBtn.textContent = '⏳ Uploading...';
       uploadBtn.disabled = true;
 
       try {
-        const response = await fetch('http://localhost:8000/transcribe', {
+        const response = await fetch('http://localhost:8000/step', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`
@@ -117,19 +133,24 @@
           body: formData,
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          alert('✅ Invoice processing started:\n' + JSON.stringify(data));
-        } else {
-          const error = await response.text();
-          alert('❌ Upload failed: ' + error);
+        const data = await response.json();
+
+        transcriptionEl.innerText = "📝 Transcription:\n" + data.transcription;
+        responseEl.innerText = "📦 Response:\n" + JSON.stringify(data.result, null, 2);
+
+        // Update prompt for next step
+        if (data.next_prompt) {
+          promptEl.innerText = data.next_prompt;
         }
+
+        // Allow new voice input
+        uploadBtn.textContent = '⬆️ Upload Voice Response';
+        uploadBtn.disabled = true;
       } catch (err) {
-        alert('❌ Error uploading file.');
-      } finally {
-        uploadBtn.textContent = '⬆️ Upload & Process';
+        alert('❌ Upload failed: ' + err.message);
+        uploadBtn.textContent = '⬆️ Upload Voice Response';
       }
     };
   </script>
 </body>
-</html>>
+</html>
