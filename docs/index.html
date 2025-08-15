@@ -896,9 +896,12 @@
       settingsBtn.addEventListener('click', (e) => {
         e.preventDefault();
         console.log('Settings button clicked');
+        console.log('Modal before show:', settingsModal.classList.toString());
         const companyData = loadCompanyData();
         populateForm(companyData);
         settingsModal.classList.remove('hidden');
+        console.log('Modal after show:', settingsModal.classList.toString());
+        console.log('Modal display style:', getComputedStyle(settingsModal).display);
       });
       
       // Close button click
@@ -906,7 +909,10 @@
         e.preventDefault();
         e.stopPropagation();
         console.log('Close button clicked');
+        console.log('Modal before hide:', settingsModal.classList.toString());
         settingsModal.classList.add('hidden');
+        console.log('Modal after hide:', settingsModal.classList.toString());
+        console.log('Modal display style:', getComputedStyle(settingsModal).display);
       });
       
       // Close modal when clicking outside
@@ -952,8 +958,11 @@
         // Save data
         try {
           if (saveCompanyData(formData)) {
-            showMessage('Company settings saved successfully!', 'success');
+            console.log('Data saved successfully, hiding modal');
+            console.log('Modal before hide:', settingsModal.classList.toString());
             settingsModal.classList.add('hidden');
+            console.log('Modal after hide:', settingsModal.classList.toString());
+            showMessage('Company settings saved successfully!', 'success');
           } else {
             showMessage('Failed to save company data.', 'error');
           }
