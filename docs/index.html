@@ -272,6 +272,11 @@
       display: none !important;
     }
     
+    /* Ensure modal hidden state works properly */
+    .modal.hidden {
+      display: none !important;
+    }
+    
     /* Header section with settings button */
     .header-section {
       display: flex;
@@ -806,19 +811,23 @@
     }
     
     function populateForm(data) {
-      document.getElementById('companyName').value = data.name || '';
-      document.getElementById('companyAddress').value = data.address || '';
-      document.getElementById('companyPhone').value = data.phone || '';
-      document.getElementById('companyEmail').value = data.email || '';
-      document.getElementById('companyReg').value = data.registration || '';
-      document.getElementById('companyVAT').value = data.vat || '';
-      document.getElementById('companyWebsite').value = data.website || '';
-      
-      // Handle logo
-      if (data.logo) {
-        showLogoPreview(data.logo);
-      } else {
-        hideLogoPreview();
+      try {
+        document.getElementById('companyName').value = data.name || '';
+        document.getElementById('companyAddress').value = data.address || '';
+        document.getElementById('companyPhone').value = data.phone || '';
+        document.getElementById('companyEmail').value = data.email || '';
+        document.getElementById('companyReg').value = data.registration || '';
+        document.getElementById('companyVAT').value = data.vat || '';
+        document.getElementById('companyWebsite').value = data.website || '';
+        
+        // Handle logo
+        if (data.logo) {
+          showLogoPreview(data.logo);
+        } else {
+          hideLogoPreview();
+        }
+      } catch (error) {
+        console.error('Error populating form:', error);
       }
     }
     
@@ -899,6 +908,7 @@
         const companyData = loadCompanyData();
         populateForm(companyData);
         settingsModal.classList.remove('hidden');
+        settingsModal.style.display = 'flex'; // Force show with inline style
       });
       
       // Close button click
@@ -907,6 +917,7 @@
         e.stopPropagation();
         console.log('Close button clicked');
         settingsModal.classList.add('hidden');
+        settingsModal.style.display = 'none'; // Force hide with inline style
       });
       
       // Close modal when clicking outside
@@ -914,6 +925,7 @@
         if (e.target === settingsModal) {
           console.log('Clicked outside modal');
           settingsModal.classList.add('hidden');
+          settingsModal.style.display = 'none'; // Force hide with inline style
         }
       });
       
@@ -953,6 +965,7 @@
         try {
           if (saveCompanyData(formData)) {
             settingsModal.classList.add('hidden');
+            settingsModal.style.display = 'none'; // Force hide with inline style
             showMessage('Company settings saved successfully!', 'success');
           } else {
             showMessage('Failed to save company data.', 'error');
@@ -979,7 +992,17 @@
       console.log('Modal event handlers initialized successfully');
     }
     
-    // Call the initialization function
+    // Ensure modal is properly hidden on initialization
+    function ensureModalHidden() {
+      if (settingsModal) {
+        settingsModal.classList.add('hidden');
+        settingsModal.style.display = 'none'; // Force hide with inline style as backup
+        console.log('Modal force hidden on init');
+      }
+    }
+    
+    // Call the initialization functions
+    ensureModalHidden();
     initializeModalEventHandlers();
     
     function updateStepCounter(step, itemCount = 0) {
