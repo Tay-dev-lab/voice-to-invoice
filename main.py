@@ -103,7 +103,8 @@ app.add_middleware(
         "https://tay-dev-lab.github.io", 
         "http://localhost:3000", 
         "http://127.0.0.1:3000",
-        "https://*.railway.app",  # Allow Railway subdomains
+        "https://voice-to-invoice-production.up.railway.app",  # Your Railway app
+        "https://*.railway.app",  # Other Railway subdomains
         "*"  # Temporary - allow all origins for testing
     ],
     allow_credentials=True,
