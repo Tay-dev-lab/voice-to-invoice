@@ -41,7 +41,7 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
             raise ValueError("Invalid or incomplete invoice data")
         
         # Create PDF filename
-        pdf_filename = f"invoice_{invoice_data.invoice_number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf_filename = f"invoice_{invoice_data.reference_number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         pdf_path = PDF_OUTPUT_DIR / pdf_filename
         
         # Create PDF document
@@ -88,10 +88,12 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
         elements.append(Spacer(1, 0.2*inch))
         
         # Invoice Details Table
+        # Use current date as invoice date
+        invoice_date = datetime.now()
         invoice_details = [
-            ['Invoice Number:', invoice_data.invoice_number],
-            ['Invoice Date:', datetime.fromisoformat(invoice_data.invoice_date).strftime("%B %d, %Y")],
-            ['Due Date:', calculate_due_date(invoice_data.invoice_date, invoice_data.payment_due_days)],
+            ['Invoice Number:', invoice_data.reference_number],
+            ['Invoice Date:', invoice_date.strftime("%B %d, %Y")],
+            ['Due Date:', invoice_data.details.due_date.strftime("%B %d, %Y")],
         ]
         
         details_table = Table(invoice_details, colWidths=[2*inch, 3*inch])
@@ -107,12 +109,8 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
         
         # Bill To Section
         elements.append(Paragraph("Bill To:", heading_style))
-        elements.append(Paragraph(invoice_data.client_name, normal_style))
-        elements.append(Paragraph(invoice_data.client_address, normal_style))
-        if invoice_data.client_email:
-            elements.append(Paragraph(invoice_data.client_email, normal_style))
-        if invoice_data.client_phone:
-            elements.append(Paragraph(invoice_data.client_phone, normal_style))
+        elements.append(Paragraph(invoice_data.client.name, normal_style))
+        elements.append(Paragraph(invoice_data.client.address, normal_style))
         elements.append(Spacer(1, 0.3*inch))
         
         # Line Items Table
@@ -123,13 +121,14 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
         subtotal = 0.0
         
         for item in invoice_data.items:
-            total = item.quantity * item.unit_price
+            # Items have 'value' not 'quantity * unit_price'
+            total = item.value
             subtotal += total
             items_data.append([
                 item.description,
-                str(item.quantity),
-                item.unit,
-                format_currency(item.unit_price),
+                "1",  # Default quantity
+                "Item",  # Default unit
+                format_currency(item.value),
                 format_currency(total)
             ])
         
@@ -172,16 +171,16 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
         
         # Payment Terms
         elements.append(Paragraph("Payment Terms:", heading_style))
-        payment_terms_text = f"Payment due within {invoice_data.payment_due_days} days"
-        if invoice_data.late_fee_percentage:
-            payment_terms_text += f". Late fee of {invoice_data.late_fee_percentage}% will apply after due date."
+        # Calculate days until due
+        days_until_due = (invoice_data.details.due_date - datetime.now().date()).days
+        payment_terms_text = f"Payment due within {days_until_due} days"
         elements.append(Paragraph(payment_terms_text, normal_style))
         
         # Build PDF
         doc.build(elements)
         
         # Save invoice to database
-        db.save_invoice(session_id, invoice_data.dict(), str(pdf_path))
+        db.save_invoice(session_id, invoice_data.model_dump(mode='json'), str(pdf_path))
         
         logger.info(f"Generated PDF invoice: {pdf_path}")
         return pdf_path

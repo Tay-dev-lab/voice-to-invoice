@@ -84,36 +84,26 @@ def step_prompt(step: str, transcript: str = None) -> str:
         # GPT prompts for processing transcribed text
         if step == "client_info":
             return f"""Extract the client's name and address from: "{transcript}"
-            Return as JSON with structure:
-            {{
-                "name": "string",
-                "address": "string (full address)"
-            }}"""
+
+Return ONLY raw JSON, no markdown formatting or explanations:
+{{"name": "string", "address": "string"}}"""
             
         elif step == "invoice_details":
             return f"""Extract invoice type and payment due date from: "{transcript}"
             The invoice type should be either "deposit" or "works_completed".
             Parse any date mentioned (e.g., "30 days", "end of month", specific date).
-            Return as JSON:
-            {{
-                "type": "deposit" or "works_completed",
-                "due_date": "YYYY-MM-DD"
-            }}"""
+            
+Return ONLY raw JSON, no markdown formatting or explanations:
+{{"type": "deposit", "due_date": "YYYY-MM-DD"}}"""
             
         elif step.startswith("item_"):
             item_num = step.split("_")[1]
             return f"""Extract invoice item #{item_num} details from: "{transcript}"
             Parse the description, value, and any applicable rates mentioned.
             If rates are not mentioned, assume they are 0.
-            Return as JSON:
-            {{
-                "description": "string",
-                "value": float,
-                "vat_rate": float (default 0.0),
-                "cis_rate": float (default 0.0),
-                "retention_rate": float (default 0.0),
-                "discount_rate": float (default 0.0)
-            }}"""
+            
+Return ONLY raw JSON, no markdown formatting or explanations:
+{{"description": "string", "value": 0.0, "vat_rate": 0.0, "cis_rate": 0.0, "retention_rate": 0.0, "discount_rate": 0.0}}"""
     
     # User-facing prompts
     if step == "welcome":
@@ -147,7 +137,7 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
                 name=client_data["name"],
                 address=client_data["address"]
             )
-            session["client_info"] = client.dict()
+            session["client_info"] = client.model_dump(mode='json')
             
         elif step == "invoice_details":
             # Parse InvoiceDetails from GPT response
@@ -173,7 +163,7 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
                 type=invoice_type,
                 due_date=due_date
             )
-            session["invoice_details"] = details.dict()
+            session["invoice_details"] = details.model_dump(mode='json')
             
         elif step.startswith("item_"):
             # Parse InvoiceItem from GPT response
@@ -196,7 +186,7 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
             # Add to items list
             if not session.get("items"):
                 session["items"] = []
-            session["items"].append(item.dict())
+            session["items"].append(item.model_dump(mode='json'))
             logger.info(f"Added item {len(session['items'])}: {item.description}")
         
         # Save updated session

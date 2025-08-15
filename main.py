@@ -44,7 +44,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Configure CORS with secure settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.cors_origins_list,
+    allow_origins=["https://tay-dev-lab.github.io", "http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
@@ -60,9 +60,6 @@ class SessionStart(BaseModel):
     session_id: str
 
 class SessionReset(BaseModel):
-    session_id: str
-
-class PDFRequest(BaseModel):
     session_id: str
 
 def validate_file_upload(file: UploadFile) -> None:
@@ -172,6 +169,7 @@ async def step_handler(
         step = session["step"]
         prompt = step_prompt(step, transcript)
         result = await whisper_gpt.chat(prompt)
+        logger.info(f"GPT response for step {step}: {repr(result)}")
         
         # Store step result
         try:
@@ -215,10 +213,14 @@ async def step_handler(
 
 @app.post("/generate")
 @limiter.limit("10/hour")
-async def generate_invoice(request: Request, payload: PDFRequest, session_token: str = Form(...)):
+async def generate_invoice(
+    request: Request, 
+    session_id: str = Form(...),
+    session_token: str = Form(...)
+):
     """Generate PDF invoice from session data"""
     try:
-        session = get_session(payload.session_id)
+        session = get_session(session_id)
         
         # Validate session token
         if session.get("token") != session_token:
@@ -233,7 +235,7 @@ async def generate_invoice(request: Request, payload: PDFRequest, session_token:
         
         # Generate PDF
         pdf_path = await generate_invoice_pdf(session)
-        logger.info(f"Generated PDF for session {payload.session_id}")
+        logger.info(f"Generated PDF for session {session_id}")
         
         # Return PDF file
         return FileResponse(
@@ -245,7 +247,7 @@ async def generate_invoice(request: Request, payload: PDFRequest, session_token:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating PDF for session {payload.session_id}: {str(e)}")
+        logger.error(f"Error generating PDF for session {session_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to generate PDF")
 
 if __name__ == "__main__":
