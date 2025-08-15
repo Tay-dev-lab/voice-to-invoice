@@ -7,7 +7,7 @@ load_dotenv()
 
 class Config:
     # Server Configuration
-    PORT = int(os.getenv("PORT", 8000))
+    PORT = int(os.getenv("PORT", 8080))
     HOST = os.getenv("HOST", "0.0.0.0")
     
     # CORS Configuration
