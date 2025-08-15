@@ -148,6 +148,13 @@
 
         const data = await response.json();
         transcriptionEl.innerText = "📝 Transcription:\n" + data.transcription;
+
+        if (data.error) {
+          responseEl.innerText = "⚠️ Error:\n" + JSON.stringify(data.error, null, 2);
+          promptEl.innerText = data.next_prompt;
+          return;
+        }
+
         responseEl.innerText = "📦 Response:\n" + JSON.stringify(data.result, null, 2);
 
         if (data.next_prompt) {
