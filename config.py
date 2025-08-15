@@ -45,10 +45,15 @@ class Config:
     def validate(self):
         """Validate required configuration"""
         if not self.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY is required. Set it in your .env file.")
+            raise ValueError("OPENAI_API_KEY is required. Set it as an environment variable.")
         
         if self.SECRET_KEY == "change-this-in-production":
             import warnings
             warnings.warn("Using default SECRET_KEY. Please set a secure key in production.")
+    
+    def validate_api_key_only(self):
+        """Validate only the API key for runtime checks"""
+        if not self.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is required. Please set it in Railway environment variables.")
 
 config = Config()

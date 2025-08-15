@@ -850,75 +850,110 @@
       reader.readAsDataURL(file);
     }
     
-    // Modal Event Handlers
-    settingsBtn.onclick = () => {
-      const companyData = loadCompanyData();
-      populateForm(companyData);
-      settingsModal.classList.remove('hidden');
-    };
-    
-    closeModal.onclick = () => {
-      settingsModal.classList.add('hidden');
-    };
-    
-    // Close modal when clicking outside
-    settingsModal.onclick = (e) => {
-      if (e.target === settingsModal) {
-        settingsModal.classList.add('hidden');
-      }
-    };
-    
-    // Logo upload handling
-    logoPreview.onclick = () => {
-      logoUpload.click();
-    };
-    
-    logoUpload.onchange = (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleLogoUpload(e.target.files[0]);
-      }
-    };
-    
-    removeLogo.onclick = (e) => {
-      e.stopPropagation();
-      hideLogoPreview();
-      logoUpload.value = '';
-    };
-    
-    // Form submission
-    companyForm.onsubmit = (e) => {
-      e.preventDefault();
+    // Initialize Modal Event Handlers - wrapped to ensure DOM is ready
+    function initializeModalEventHandlers() {
+      console.log('Initializing modal event handlers...');
       
-      const formData = getFormData();
-      
-      // Validate required fields
-      if (!formData.name) {
-        showMessage('Company name is required.', 'error');
+      // Check if all elements exist
+      if (!settingsBtn || !settingsModal || !closeModal || !companyForm) {
+        console.error('Modal elements not found:', {
+          settingsBtn: !!settingsBtn,
+          settingsModal: !!settingsModal, 
+          closeModal: !!closeModal,
+          companyForm: !!companyForm
+        });
         return;
       }
       
-      if (!formData.address) {
-        showMessage('Company address is required.', 'error');
-        return;
+      // Settings button click
+      settingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('Settings button clicked');
+        const companyData = loadCompanyData();
+        populateForm(companyData);
+        settingsModal.classList.remove('hidden');
+      });
+      
+      // Close button click
+      closeModal.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('Close button clicked');
+        settingsModal.classList.add('hidden');
+      });
+      
+      // Close modal when clicking outside
+      settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+          console.log('Clicked outside modal');
+          settingsModal.classList.add('hidden');
+        }
+      });
+      
+      // Logo upload handling
+      if (logoPreview && logoUpload) {
+        logoPreview.addEventListener('click', () => {
+          logoUpload.click();
+        });
+        
+        logoUpload.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleLogoUpload(e.target.files[0]);
+          }
+        });
       }
       
-      // Save data
-      if (saveCompanyData(formData)) {
-        showMessage('Company settings saved successfully!', 'success');
-        settingsModal.classList.add('hidden');
+      if (removeLogo) {
+        removeLogo.addEventListener('click', (e) => {
+          e.stopPropagation();
+          hideLogoPreview();
+          logoUpload.value = '';
+        });
       }
-    };
+      
+      // Form submission
+      companyForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        console.log('Form submitted');
+        
+        const formData = getFormData();
+        console.log('Form data:', formData);
+        
+        // Validate required fields
+        if (!formData.name.trim()) {
+          showMessage('Company name is required.', 'error');
+          return;
+        }
+        
+        if (!formData.address.trim()) {
+          showMessage('Company address is required.', 'error');
+          return;
+        }
+        
+        // Save data
+        if (saveCompanyData(formData)) {
+          showMessage('Company settings saved successfully!', 'success');
+          settingsModal.classList.add('hidden');
+        }
+      });
+      
+      // Clear data
+      if (clearData) {
+        clearData.addEventListener('click', () => {
+          if (confirm('Are you sure you want to clear all company data? This cannot be undone.')) {
+            localStorage.removeItem('companyData');
+            populateForm({});
+            hideLogoPreview();
+            if (logoUpload) logoUpload.value = '';
+            showMessage('Company data cleared.', 'success');
+          }
+        });
+      }
+      
+      console.log('Modal event handlers initialized successfully');
+    }
     
-    // Clear data
-    clearData.onclick = () => {
-      if (confirm('Are you sure you want to clear all company data? This cannot be undone.')) {
-        localStorage.removeItem('companyData');
-        populateForm({});
-        hideLogoPreview();
-        logoUpload.value = '';
-        showMessage('Company data cleared.', 'success');
-      }
-    };
+    // Call the initialization function
+    initializeModalEventHandlers();
     
     function updateStepCounter(step, itemCount = 0) {
       const stepMap = {

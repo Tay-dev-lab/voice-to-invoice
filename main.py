@@ -82,8 +82,12 @@ def track_error(error_type: str, session_id: str = None, details: str = None):
         }
     )
 
-# Validate configuration
-config.validate()
+# Validate configuration - only validate API key at startup for Railway compatibility
+try:
+    config.validate()
+except ValueError as e:
+    logger.warning(f"Configuration validation warning: {e}")
+    # Don't fail startup, but log the issue
 
 app = FastAPI(title="Voice to Invoice API")
 
@@ -110,7 +114,12 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 # Initialize OpenAI client with server-side API key
-whisper_gpt = OpenAIWhisperGPT(config.OPENAI_API_KEY)
+# Validate API key before creating client
+if not config.OPENAI_API_KEY:
+    logger.error("OPENAI_API_KEY not set. Please set it in Railway environment variables.")
+    whisper_gpt = None
+else:
+    whisper_gpt = OpenAIWhisperGPT(config.OPENAI_API_KEY)
 
 # Session-based rate limiting
 session_request_times = defaultdict(list)
@@ -197,9 +206,13 @@ async def health_check():
     
     # Check OpenAI API connectivity
     try:
-        # Test with a simple completion
-        test_response = await whisper_gpt.chat("Say 'ok'")
-        health_status["checks"]["openai_api"] = "healthy"
+        if whisper_gpt:
+            # Test with a simple completion
+            test_response = await whisper_gpt.chat("Say 'ok'")
+            health_status["checks"]["openai_api"] = "healthy"
+        else:
+            health_status["checks"]["openai_api"] = "not configured: OPENAI_API_KEY missing"
+            health_status["status"] = "degraded"
     except Exception as e:
         health_status["checks"]["openai_api"] = f"unhealthy: {str(e)}"
         health_status["status"] = "degraded"
@@ -302,6 +315,13 @@ async def step_handler(
     temp_path = UPLOAD_DIR / f"{uuid.uuid4()}.webm"
     
     try:
+        # Check if OpenAI client is available
+        if not whisper_gpt:
+            raise HTTPException(
+                status_code=503, 
+                detail="OpenAI API not configured. Please contact administrator."
+            )
+        
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
