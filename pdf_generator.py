@@ -7,7 +7,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 
@@ -30,7 +31,7 @@ def calculate_due_date(invoice_date: str, payment_due_days: int) -> str:
     due_dt = invoice_dt + timedelta(days=payment_due_days)
     return due_dt.strftime("%B %d, %Y")
 
-async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
+async def generate_invoice_pdf(session: Dict[str, Any], company_info: Dict[str, Any] = None) -> Path:
     """Generate PDF invoice from session data"""
     try:
         # Get invoice data
@@ -82,6 +83,100 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
             parent=styles['Normal'],
             alignment=TA_RIGHT
         )
+        
+        # Add Company Header if provided
+        if company_info and (company_info.get('name') or company_info.get('logo')):
+            # Company header table data
+            company_header_data = []
+            
+            # If we have a logo, create a two-column layout
+            if company_info.get('logo'):
+                try:
+                    import base64
+                    import io
+                    
+                    # Decode base64 logo
+                    logo_data = company_info['logo']
+                    if logo_data.startswith('data:image'):
+                        # Remove data URL prefix
+                        logo_data = logo_data.split(',', 1)[1]
+                    
+                    logo_bytes = base64.b64decode(logo_data)
+                    logo_image = ImageReader(io.BytesIO(logo_bytes))
+                    
+                    # Create logo image with max size constraints
+                    logo = Image(logo_image, width=1.5*inch, height=1.5*inch)
+                    logo.hAlign = 'LEFT'
+                    
+                    # Company info text
+                    company_text_parts = []
+                    if company_info.get('name'):
+                        company_text_parts.append(f"<b>{company_info['name']}</b>")
+                    if company_info.get('address'):
+                        company_text_parts.append(company_info['address'].replace('\n', '<br/>'))
+                    if company_info.get('phone'):
+                        company_text_parts.append(f"Tel: {company_info['phone']}")
+                    if company_info.get('email'):
+                        company_text_parts.append(f"Email: {company_info['email']}")
+                    if company_info.get('website'):
+                        company_text_parts.append(company_info['website'])
+                    if company_info.get('vat'):
+                        company_text_parts.append(f"VAT No: {company_info['vat']}")
+                    if company_info.get('registration'):
+                        company_text_parts.append(f"Company Reg: {company_info['registration']}")
+                    
+                    company_text = Paragraph('<br/>'.join(company_text_parts), normal_style)
+                    
+                    # Create header table with logo and company info
+                    company_header_data = [[logo, company_text]]
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to process company logo: {str(e)}")
+                    # Fall back to text-only header
+                    company_header_data = None
+            
+            # If we don't have a logo or logo processing failed, use text-only header
+            if not company_header_data and company_info.get('name'):
+                company_text_parts = []
+                company_text_parts.append(f"<b>{company_info['name']}</b>")
+                if company_info.get('address'):
+                    company_text_parts.append(company_info['address'].replace('\n', '<br/>'))
+                if company_info.get('phone'):
+                    company_text_parts.append(f"Tel: {company_info['phone']}")
+                if company_info.get('email'):
+                    company_text_parts.append(f"Email: {company_info['email']}")
+                if company_info.get('website'):
+                    company_text_parts.append(company_info['website'])
+                if company_info.get('vat'):
+                    company_text_parts.append(f"VAT No: {company_info['vat']}")
+                if company_info.get('registration'):
+                    company_text_parts.append(f"Company Reg: {company_info['registration']}")
+                
+                company_text = Paragraph('<br/>'.join(company_text_parts), normal_style)
+                company_header_data = [[company_text]]
+            
+            # Add company header table if we have data
+            if company_header_data:
+                if len(company_header_data[0]) == 2:  # Logo + text layout
+                    company_table = Table(company_header_data, colWidths=[2*inch, 4*inch])
+                    company_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                        ('TOPPADDING', (0, 0), (-1, -1), 0),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ]))
+                else:  # Text-only layout
+                    company_table = Table(company_header_data, colWidths=[6*inch])
+                    company_table.setStyle(TableStyle([
+                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                        ('TOPPADDING', (0, 0), (-1, -1), 0),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ]))
+                
+                elements.append(company_table)
+                elements.append(Spacer(1, 0.3*inch))
         
         # Add Invoice Title
         elements.append(Paragraph("INVOICE", title_style))

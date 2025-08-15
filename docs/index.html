@@ -272,6 +272,252 @@
       display: none;
     }
     
+    /* Header section with settings button */
+    .header-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+    
+    .title-area {
+      flex: 1;
+    }
+    
+    .settings-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.3s ease;
+      margin-left: 20px;
+    }
+    
+    .settings-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: scale(1.05);
+    }
+    
+    /* Modal Styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 30px;
+      border-bottom: 1px solid #E5E9F0;
+    }
+    
+    .modal-header h2 {
+      margin: 0;
+      color: #2E3440;
+      font-size: 24px;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: #4C566A;
+      cursor: pointer;
+      padding: 0;
+      min-width: auto;
+      line-height: 1;
+    }
+    
+    .close-btn:hover {
+      color: #BF616A;
+      background: none;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .company-form {
+      padding: 30px;
+    }
+    
+    .form-section {
+      margin-bottom: 30px;
+    }
+    
+    .form-section h3 {
+      color: #2E3440;
+      margin-bottom: 20px;
+      font-size: 18px;
+      border-bottom: 2px solid #E5E9F0;
+      padding-bottom: 10px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #2E3440;
+    }
+    
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #E5E9F0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #5E81AC;
+    }
+    
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    .logo-upload {
+      text-align: center;
+    }
+    
+    .logo-preview {
+      width: 150px;
+      height: 150px;
+      border: 2px dashed #D8DEE9;
+      border-radius: 8px;
+      margin: 0 auto 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.3s;
+      background: #F7F9FC;
+    }
+    
+    .logo-preview:hover {
+      border-color: #5E81AC;
+    }
+    
+    .logo-preview.has-image {
+      border-style: solid;
+      border-color: #A3BE8C;
+      background: white;
+    }
+    
+    .upload-placeholder {
+      text-align: center;
+      color: #4C566A;
+    }
+    
+    .upload-placeholder span {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 10px;
+    }
+    
+    .upload-placeholder p {
+      margin: 0 0 5px 0;
+      font-weight: 600;
+    }
+    
+    .upload-placeholder small {
+      color: #8FBCBB;
+    }
+    
+    .logo-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    
+    .remove-logo {
+      background: #BF616A;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      min-width: auto;
+    }
+    
+    .remove-logo:hover {
+      background: #A54850;
+    }
+    
+    .form-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 20px;
+      border-top: 1px solid #E5E9F0;
+    }
+    
+    .btn-primary {
+      background: #A3BE8C;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: auto;
+    }
+    
+    .btn-primary:hover {
+      background: #8FAC70;
+    }
+    
+    .btn-secondary {
+      background: #D08770;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: auto;
+    }
+    
+    .btn-secondary:hover {
+      background: #B8734A;
+    }
+
     @media (max-width: 600px) {
       .container {
         padding: 25px;
@@ -288,13 +534,44 @@
       .button-group button {
         width: 100%;
       }
+      
+      .modal-content {
+        width: 95%;
+      }
+      
+      .modal-header {
+        padding: 15px 20px;
+      }
+      
+      .company-form {
+        padding: 20px;
+      }
+      
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .form-actions {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .btn-primary,
+      .btn-secondary {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎙️ Voice to Invoice</h1>
-    <p class="subtitle">Create professional invoices using your voice - Free & Simple</p>
+    <div class="header-section">
+      <div class="title-area">
+        <h1>🎙️ Voice to Invoice</h1>
+        <p class="subtitle">Create professional invoices using your voice - Free & Simple</p>
+      </div>
+      <button id="settingsBtn" class="settings-btn" title="Company Settings">⚙️</button>
+    </div>
     
     <div class="step-counter" id="stepCounter">
       Step 1: Welcome
@@ -349,6 +626,79 @@
     <div id="messages"></div>
   </div>
 
+  <!-- Company Settings Modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚙️ Company Settings</h2>
+        <button id="closeModal" class="close-btn">&times;</button>
+      </div>
+      
+      <form id="companyForm" class="company-form">
+        <div class="form-section">
+          <h3>Company Information</h3>
+          
+          <div class="form-group">
+            <label for="companyName">Company Name *</label>
+            <input type="text" id="companyName" placeholder="Your Company Ltd">
+          </div>
+          
+          <div class="form-group">
+            <label for="companyAddress">Address *</label>
+            <textarea id="companyAddress" rows="3" placeholder="123 Business Street&#10;London, UK&#10;SW1A 1AA"></textarea>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="companyPhone">Phone</label>
+              <input type="tel" id="companyPhone" placeholder="+44 20 1234 5678">
+            </div>
+            <div class="form-group">
+              <label for="companyEmail">Email</label>
+              <input type="email" id="companyEmail" placeholder="info@company.com">
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="companyReg">Company Reg No.</label>
+              <input type="text" id="companyReg" placeholder="12345678">
+            </div>
+            <div class="form-group">
+              <label for="companyVAT">VAT Number</label>
+              <input type="text" id="companyVAT" placeholder="GB123456789">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="companyWebsite">Website</label>
+            <input type="url" id="companyWebsite" placeholder="https://www.company.com">
+          </div>
+        </div>
+        
+        <div class="form-section">
+          <h3>Company Logo</h3>
+          <div class="logo-upload">
+            <input type="file" id="logoUpload" accept="image/*" class="hidden">
+            <div id="logoPreview" class="logo-preview">
+              <div class="upload-placeholder">
+                <span>📸</span>
+                <p>Click to upload logo</p>
+                <small>PNG, JPG up to 2MB</small>
+              </div>
+            </div>
+            <button type="button" id="removeLogo" class="remove-logo hidden">Remove Logo</button>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" id="clearData" class="btn-secondary">Clear All</button>
+          <button type="submit" class="btn-primary">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     // Configuration - Update for your deployment
     const API_BASE_URL = window.location.hostname === 'localhost' 
@@ -384,6 +734,191 @@
     const responseEl = document.getElementById('response');
     const responseText = document.getElementById('responseText');
     const messages = document.getElementById('messages');
+    
+    // Company Settings Modal Elements
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeModal = document.getElementById('closeModal');
+    const companyForm = document.getElementById('companyForm');
+    const logoUpload = document.getElementById('logoUpload');
+    const logoPreview = document.getElementById('logoPreview');
+    const removeLogo = document.getElementById('removeLogo');
+    const clearData = document.getElementById('clearData');
+    
+    // Company Settings Functions
+    function loadCompanyData() {
+      const data = localStorage.getItem('companyData');
+      if (data) {
+        try {
+          return JSON.parse(data);
+        } catch (e) {
+          console.error('Error parsing company data:', e);
+        }
+      }
+      return {
+        name: '',
+        address: '',
+        phone: '',
+        email: '',
+        registration: '',
+        vat: '',
+        website: '',
+        logo: null
+      };
+    }
+    
+    function saveCompanyData(data) {
+      try {
+        localStorage.setItem('companyData', JSON.stringify(data));
+        return true;
+      } catch (e) {
+        console.error('Error saving company data:', e);
+        showMessage('Error saving company data. Data may be too large.', 'error');
+        return false;
+      }
+    }
+    
+    function populateForm(data) {
+      document.getElementById('companyName').value = data.name || '';
+      document.getElementById('companyAddress').value = data.address || '';
+      document.getElementById('companyPhone').value = data.phone || '';
+      document.getElementById('companyEmail').value = data.email || '';
+      document.getElementById('companyReg').value = data.registration || '';
+      document.getElementById('companyVAT').value = data.vat || '';
+      document.getElementById('companyWebsite').value = data.website || '';
+      
+      // Handle logo
+      if (data.logo) {
+        showLogoPreview(data.logo);
+      } else {
+        hideLogoPreview();
+      }
+    }
+    
+    function getFormData() {
+      return {
+        name: document.getElementById('companyName').value.trim(),
+        address: document.getElementById('companyAddress').value.trim(),
+        phone: document.getElementById('companyPhone').value.trim(),
+        email: document.getElementById('companyEmail').value.trim(),
+        registration: document.getElementById('companyReg').value.trim(),
+        vat: document.getElementById('companyVAT').value.trim(),
+        website: document.getElementById('companyWebsite').value.trim(),
+        logo: logoPreview.dataset.logoData || null
+      };
+    }
+    
+    function showLogoPreview(base64Data) {
+      logoPreview.innerHTML = `<img src="${base64Data}" alt="Company Logo" class="logo-image">`;
+      logoPreview.classList.add('has-image');
+      logoPreview.dataset.logoData = base64Data;
+      removeLogo.classList.remove('hidden');
+    }
+    
+    function hideLogoPreview() {
+      logoPreview.innerHTML = `
+        <div class="upload-placeholder">
+          <span>📸</span>
+          <p>Click to upload logo</p>
+          <small>PNG, JPG up to 2MB</small>
+        </div>
+      `;
+      logoPreview.classList.remove('has-image');
+      delete logoPreview.dataset.logoData;
+      removeLogo.classList.add('hidden');
+    }
+    
+    function handleLogoUpload(file) {
+      // Validate file
+      if (!file.type.startsWith('image/')) {
+        showMessage('Please select an image file (PNG, JPG).', 'error');
+        return;
+      }
+      
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        showMessage('Image file is too large. Please choose a file under 2MB.', 'error');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        showLogoPreview(e.target.result);
+      };
+      reader.onerror = function() {
+        showMessage('Error reading image file.', 'error');
+      };
+      reader.readAsDataURL(file);
+    }
+    
+    // Modal Event Handlers
+    settingsBtn.onclick = () => {
+      const companyData = loadCompanyData();
+      populateForm(companyData);
+      settingsModal.classList.remove('hidden');
+    };
+    
+    closeModal.onclick = () => {
+      settingsModal.classList.add('hidden');
+    };
+    
+    // Close modal when clicking outside
+    settingsModal.onclick = (e) => {
+      if (e.target === settingsModal) {
+        settingsModal.classList.add('hidden');
+      }
+    };
+    
+    // Logo upload handling
+    logoPreview.onclick = () => {
+      logoUpload.click();
+    };
+    
+    logoUpload.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        handleLogoUpload(e.target.files[0]);
+      }
+    };
+    
+    removeLogo.onclick = (e) => {
+      e.stopPropagation();
+      hideLogoPreview();
+      logoUpload.value = '';
+    };
+    
+    // Form submission
+    companyForm.onsubmit = (e) => {
+      e.preventDefault();
+      
+      const formData = getFormData();
+      
+      // Validate required fields
+      if (!formData.name) {
+        showMessage('Company name is required.', 'error');
+        return;
+      }
+      
+      if (!formData.address) {
+        showMessage('Company address is required.', 'error');
+        return;
+      }
+      
+      // Save data
+      if (saveCompanyData(formData)) {
+        showMessage('Company settings saved successfully!', 'success');
+        settingsModal.classList.add('hidden');
+      }
+    };
+    
+    // Clear data
+    clearData.onclick = () => {
+      if (confirm('Are you sure you want to clear all company data? This cannot be undone.')) {
+        localStorage.removeItem('companyData');
+        populateForm({});
+        hideLogoPreview();
+        logoUpload.value = '';
+        showMessage('Company data cleared.', 'success');
+      }
+    };
     
     function updateStepCounter(step, itemCount = 0) {
       const stepMap = {
@@ -652,6 +1187,12 @@
         const formData = new FormData();
         formData.append('session_id', sessionId);
         formData.append('session_token', sessionToken);
+        
+        // Include company data from localStorage if available
+        const companyData = loadCompanyData();
+        if (companyData.name || companyData.address) {
+          formData.append('company_data', JSON.stringify(companyData));
+        }
         
         const response = await fetch(`${API_BASE_URL}/generate`, {
           method: 'POST',

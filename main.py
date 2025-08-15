@@ -364,7 +364,8 @@ async def step_handler(
 async def generate_invoice(
     request: Request, 
     session_id: str = Form(...),
-    session_token: str = Form(...)
+    session_token: str = Form(...),
+    company_data: str = Form(None)
 ):
     """Generate PDF invoice from session data"""
     try:
@@ -381,8 +382,18 @@ async def generate_invoice(
                 detail="Cannot generate invoice. Need at least client info, invoice details, and one item."
             )
         
+        # Parse company data if provided
+        company_info = None
+        if company_data:
+            try:
+                import json
+                company_info = json.loads(company_data)
+                logger.info(f"Using company data for session {session_id}")
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid company data format for session {session_id}")
+        
         # Generate PDF
-        pdf_path = await generate_invoice_pdf(session)
+        pdf_path = await generate_invoice_pdf(session, company_info)
         logger.info(f"Generated PDF for session {session_id}")
         
         # Return PDF file
