@@ -11,7 +11,7 @@ class Config:
     HOST = os.getenv("HOST", "0.0.0.0")
     
     # CORS Configuration
-    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,https://tay-dev-lab.github.io")
     
     @property
     def cors_origins_list(self) -> List[str]:
