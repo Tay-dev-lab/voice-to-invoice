@@ -568,52 +568,67 @@
         const data = await response.json();
         
         if (response.ok) {
-          // Update UI with results
+          // Always show transcription if available
           if (data.transcription) {
             transcriptionEl.classList.remove('hidden');
             transcriptionText.textContent = data.transcription;
           }
           
-          if (data.result) {
-            responseEl.classList.remove('hidden');
-            try {
-              const parsed = JSON.parse(data.result);
-              responseText.textContent = JSON.stringify(parsed, null, 2);
-            } catch {
-              responseText.textContent = data.result;
-            }
-          }
-          
-          // Clear any persistent errors on successful processing
-          clearPersistentError();
-          
-          // Update prompt and UI
-          promptEl.textContent = data.next_prompt;
-          updateUI(data.current_step, data.can_generate, data.items_count || 0);
-          
-          // Show success message
-          if (data.current_step.startsWith('item_')) {
-            showMessage(`✅ Item ${data.items_count} added successfully!`, 'success');
-          } else if (data.is_done) {
-            showMessage('🎉 All information collected! Click "Create Invoice PDF" to generate your invoice.', 'success');
-          } else {
-            showMessage('✅ Information captured successfully!', 'success');
-          }
-          
-          // Handle validation errors with specific messages
+          // Check for validation errors FIRST before showing success
           if (data.error) {
-            // Clear recording when there's an error
+            // Clear recording and response when there's an error
             audioPlayback.classList.add('hidden');
+            responseEl.classList.add('hidden');
             
             // Show persistent error message with specific details
             let errorMessage = '⚠️ <strong>Missing Information:</strong><br>';
-            errorMessage += data.error || data.next_prompt || 'Please provide the required information.';
+            
+            // Use the error message or next_prompt which contains the specific validation error
+            if (data.next_prompt && data.next_prompt.startsWith('❗')) {
+              // Extract the error message from next_prompt (which contains our specific validation message)
+              errorMessage += data.next_prompt.replace('❗ ', '');
+            } else {
+              errorMessage += data.error || 'Please provide the required information.';
+            }
+            
             errorMessage += '<br><br>📢 <strong>Please record your answer again with the missing information.</strong>';
             
             showMessage(errorMessage, 'error', true);  // Make it persistent
             
             // Focus on record button
             recordBtn.focus();
+            
+            // Keep the current step visible
+            if (data.current_step) {
+              updateUI(data.current_step, data.can_generate || false, data.items_count || 0);
+            }
+          } else {
+            // Only process success case if there's no error
+            if (data.result) {
+              responseEl.classList.remove('hidden');
+              try {
+                const parsed = JSON.parse(data.result);
+                responseText.textContent = JSON.stringify(parsed, null, 2);
+              } catch {
+                responseText.textContent = data.result;
+              }
+            }
+            
+            // Clear any persistent errors on successful processing
+            clearPersistentError();
+            
+            // Update prompt and UI
+            promptEl.textContent = data.next_prompt;
+            updateUI(data.current_step, data.can_generate, data.items_count || 0);
+            
+            // Show success message
+            if (data.current_step.startsWith('item_')) {
+              showMessage(`✅ Item ${data.items_count} added successfully!`, 'success');
+            } else if (data.is_done) {
+              showMessage('🎉 All information collected! Click "Create Invoice PDF" to generate your invoice.', 'success');
+            } else {
+              showMessage('✅ Information captured successfully!', 'success');
+            }
           }
         } else {
           // Handle non-200 responses

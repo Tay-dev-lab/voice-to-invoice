@@ -101,6 +101,8 @@ Return ONLY raw JSON, no markdown formatting or explanations:
             return f"""Extract invoice item #{item_num} details from: "{transcript}"
             Parse the description, value, and any applicable rates mentioned.
             If rates are not mentioned, assume they are 0.
+            If you cannot determine the value, use 0.
+            If you cannot determine the description, use empty string "".
             
 Return ONLY raw JSON, no markdown formatting or explanations:
 {{"description": "string", "value": 0.0, "vat_rate": 0.0, "cis_rate": 0.0, "retention_rate": 0.0, "discount_rate": 0.0}}"""
@@ -245,7 +247,13 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
                     if vat_match:
                         item_data["vat_rate"] = float(vat_match.group(1))
                 else:
-                    raise json.JSONDecodeError("Could not parse item data", cleaned_result, 0)
+                    # If we can't parse, provide helpful error message
+                    raise ValidationError(
+                        "I couldn't understand the item details. Please clearly state: "
+                        "1) What the item is (description), "
+                        "2) The amount/value in pounds. "
+                        "Example: 'Website development for £1500'"
+                    )
             
             # Create InvoiceItem instance with defaults for missing fields
             item = InvoiceItem(
@@ -281,7 +289,25 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
         
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse JSON response for step {step}: {str(e)}")
-        raise ValidationError(f"Invalid response format: {str(e)}")
+        # Provide step-specific error messages
+        if step == "client_info":
+            raise ValidationError(
+                "I couldn't understand the client information. "
+                "Please clearly state the client's name and full address."
+            )
+        elif step == "invoice_details":
+            raise ValidationError(
+                "I couldn't understand the invoice details. "
+                "Please clearly state whether this is a deposit or works completed invoice, "
+                "and when payment is due (e.g., '30 days' or 'end of month')."
+            )
+        elif step.startswith("item_"):
+            raise ValidationError(
+                "I couldn't understand the item details. "
+                "Please clearly state what the item is and its value in pounds."
+            )
+        else:
+            raise ValidationError(f"I couldn't understand your response. Please try again.")
     except Exception as e:
         logger.error(f"Error storing step result for {step}: {str(e)}")
         raise ValidationError(f"Failed to process response: {str(e)}")
