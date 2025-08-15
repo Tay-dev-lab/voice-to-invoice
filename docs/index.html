@@ -213,10 +213,35 @@
     .error-message {
       background: #FFEBEE;
       color: #C62828;
-      padding: 15px;
+      padding: 20px;
       border-radius: 8px;
-      margin-top: 15px;
+      margin: 20px 0;
       border-left: 4px solid #C62828;
+      font-weight: 600;
+      font-size: 16px;
+      box-shadow: 0 4px 6px rgba(198, 40, 40, 0.1);
+      animation: shake 0.5s;
+    }
+    
+    .error-message.persistent {
+      background: #B71C1C;
+      color: white;
+      position: sticky;
+      top: 20px;
+      z-index: 100;
+      border-left: none;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.9; }
     }
     
     .success-message {
@@ -380,18 +405,46 @@
       }
     }
     
-    function showMessage(text, type = 'info') {
+    let persistentErrorMessage = null;
+    
+    function showMessage(text, type = 'info', persistent = false) {
+      // Clear any existing persistent error when showing a success message
+      if (type === 'success' && persistentErrorMessage) {
+        persistentErrorMessage.remove();
+        persistentErrorMessage = null;
+      }
+      
       const messageDiv = document.createElement('div');
       messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
-      messageDiv.textContent = text;
+      
+      if (persistent && type === 'error') {
+        messageDiv.className += ' persistent';
+        // Remove any existing persistent error
+        if (persistentErrorMessage) {
+          persistentErrorMessage.remove();
+        }
+        persistentErrorMessage = messageDiv;
+      }
+      
+      messageDiv.innerHTML = text;
       messages.innerHTML = '';
       messages.appendChild(messageDiv);
       
-      setTimeout(() => {
-        if (messageDiv.parentNode) {
-          messageDiv.remove();
-        }
-      }, 5000);
+      // Don't auto-remove persistent errors
+      if (!persistent) {
+        setTimeout(() => {
+          if (messageDiv.parentNode && messageDiv !== persistentErrorMessage) {
+            messageDiv.remove();
+          }
+        }, 5000);
+      }
+    }
+    
+    function clearPersistentError() {
+      if (persistentErrorMessage) {
+        persistentErrorMessage.remove();
+        persistentErrorMessage = null;
+      }
     }
     
     function updateUI(step, canGenerate, itemCount = 0) {
@@ -451,6 +504,9 @@
     // Record button click
     recordBtn.onclick = async () => {
       try {
+        // Clear any persistent error messages when starting a new recording
+        clearPersistentError();
+        
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
@@ -528,25 +584,41 @@
             }
           }
           
+          // Clear any persistent errors on successful processing
+          clearPersistentError();
+          
           // Update prompt and UI
           promptEl.textContent = data.next_prompt;
           updateUI(data.current_step, data.can_generate, data.items_count || 0);
           
           // Show success message
           if (data.current_step.startsWith('item_')) {
-            showMessage(`Item ${data.items_count} added successfully!`, 'success');
+            showMessage(`✅ Item ${data.items_count} added successfully!`, 'success');
           } else if (data.is_done) {
-            showMessage('All information collected! Click "Create Invoice PDF" to generate your invoice.', 'success');
+            showMessage('🎉 All information collected! Click "Create Invoice PDF" to generate your invoice.', 'success');
           } else {
-            showMessage('Information captured successfully!', 'success');
+            showMessage('✅ Information captured successfully!', 'success');
           }
           
-          // Handle validation errors
+          // Handle validation errors with specific messages
           if (data.error) {
-            showMessage('Please provide the information again more clearly.', 'error');
+            // Clear recording when there's an error
+            audioPlayback.classList.add('hidden');
+            
+            // Show persistent error message with specific details
+            let errorMessage = '⚠️ <strong>Missing Information:</strong><br>';
+            errorMessage += data.error || data.next_prompt || 'Please provide the required information.';
+            errorMessage += '<br><br>📢 <strong>Please record your answer again with the missing information.</strong>';
+            
+            showMessage(errorMessage, 'error', true);  // Make it persistent
+            
+            // Focus on record button
+            recordBtn.focus();
           }
         } else {
-          showMessage('Failed to process audio. Please try again.', 'error');
+          // Handle non-200 responses
+          const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+          showMessage(`❌ Failed to process: ${errorData.detail || 'Please try again.'}`, 'error');
         }
       } catch (error) {
         showMessage('Connection error. Please check your internet.', 'error');

@@ -123,14 +123,60 @@ Return ONLY raw JSON, no markdown formatting or explanations:
     else:
         return "Please continue with the next step."
 
+def clean_json_response(response: str) -> str:
+    """Clean GPT response to extract JSON, handling various formats"""
+    response = response.strip()
+    
+    # Remove markdown code blocks if present
+    if response.startswith('```'):
+        lines = response.split('\n')
+        if lines[0].startswith('```') and lines[-1] == '```':
+            response = '\n'.join(lines[1:-1])
+    
+    # Remove any leading/trailing whitespace
+    response = response.strip()
+    
+    # If it starts with 'json' (from ```json), remove it
+    if response.startswith('json'):
+        response = response[4:].strip()
+    
+    return response
+
 def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
     """Store and validate step result"""
     try:
+        # Clean the GPT response first
+        cleaned_result = clean_json_response(result)
+        
         if step == "client_info":
             # Parse ClientInfo from GPT response
-            client_data = json.loads(result)
-            if not client_data.get("name") or not client_data.get("address"):
-                raise ValidationError("Client name and address are required")
+            try:
+                client_data = json.loads(cleaned_result)
+            except json.JSONDecodeError:
+                # Try to extract name and address using regex as fallback
+                import re
+                name_match = re.search(r'"name"\s*:\s*"([^"]+)"', cleaned_result)
+                address_match = re.search(r'"address"\s*:\s*"([^"]+)"', cleaned_result)
+                
+                if name_match and address_match:
+                    client_data = {
+                        "name": name_match.group(1),
+                        "address": address_match.group(1)
+                    }
+                else:
+                    raise json.JSONDecodeError("Could not parse client info", cleaned_result, 0)
+            
+            # Detailed validation with specific error messages
+            if not client_data.get("name"):
+                raise ValidationError(
+                    "Client name is missing. Please say the full name clearly. "
+                    "Example: 'John Smith' or 'ABC Company Ltd'"
+                )
+            if not client_data.get("address"):
+                raise ValidationError(
+                    "Client address is missing. Please provide the complete address. "
+                    "Example: '123 Main Street, London, SW1A 1AA'"
+                )
             
             # Create ClientInfo instance to validate
             client = ClientInfo(
@@ -141,7 +187,21 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
             
         elif step == "invoice_details":
             # Parse InvoiceDetails from GPT response
-            details_data = json.loads(result)
+            try:
+                details_data = json.loads(cleaned_result)
+            except json.JSONDecodeError:
+                # Fallback parsing for common variations
+                import re
+                type_match = re.search(r'"type"\s*:\s*"(deposit|works_completed)"', cleaned_result)
+                date_match = re.search(r'"due_date"\s*:\s*"([^"]+)"', cleaned_result)
+                
+                if type_match:
+                    details_data = {
+                        "type": type_match.group(1),
+                        "due_date": date_match.group(1) if date_match else None
+                    }
+                else:
+                    raise json.JSONDecodeError("Could not parse invoice details", cleaned_result, 0)
             
             # Parse the due date
             if "due_date" in details_data:
@@ -167,7 +227,25 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
             
         elif step.startswith("item_"):
             # Parse InvoiceItem from GPT response
-            item_data = json.loads(result)
+            try:
+                item_data = json.loads(cleaned_result)
+            except json.JSONDecodeError:
+                # Fallback parsing for item data
+                import re
+                desc_match = re.search(r'"description"\s*:\s*"([^"]+)"', cleaned_result)
+                value_match = re.search(r'"value"\s*:\s*([\d.]+)', cleaned_result)
+                
+                if desc_match and value_match:
+                    item_data = {
+                        "description": desc_match.group(1),
+                        "value": float(value_match.group(1))
+                    }
+                    # Try to extract optional rates
+                    vat_match = re.search(r'"vat_rate"\s*:\s*([\d.]+)', cleaned_result)
+                    if vat_match:
+                        item_data["vat_rate"] = float(vat_match.group(1))
+                else:
+                    raise json.JSONDecodeError("Could not parse item data", cleaned_result, 0)
             
             # Create InvoiceItem instance with defaults for missing fields
             item = InvoiceItem(
@@ -180,8 +258,16 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
             )
             
             # Validate that we have at least description and value
-            if not item.description or item.value <= 0:
-                raise ValidationError("Item must have a description and positive value")
+            if not item.description:
+                raise ValidationError(
+                    "Item description is missing. Please describe what work or product this is for. "
+                    "Example: 'Website development for homepage redesign'"
+                )
+            if item.value <= 0:
+                raise ValidationError(
+                    f"Item value must be a positive amount. You said: {item.value}. "
+                    "Please state the amount clearly. Example: 'One thousand five hundred pounds' or '1500 pounds'"
+                )
             
             # Add to items list
             if not session.get("items"):

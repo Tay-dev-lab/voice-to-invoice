@@ -11,6 +11,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import secrets
+from collections import defaultdict
+import time
 
 from config import config
 from whisper_gpt import OpenAIWhisperGPT
@@ -20,16 +22,64 @@ from session_store import (
 )
 from pdf_generator import generate_invoice_pdf
 
+# Configure structured logging
+import json as json_lib
+
+class StructuredFormatter(logging.Formatter):
+    def format(self, record):
+        log_obj = {
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+            'module': record.module,
+            'function': record.funcName,
+            'line': record.lineno
+        }
+        
+        # Add extra fields if present
+        if hasattr(record, 'session_id'):
+            log_obj['session_id'] = record.session_id
+        if hasattr(record, 'step'):
+            log_obj['step'] = record.step
+        if hasattr(record, 'error_type'):
+            log_obj['error_type'] = record.error_type
+            
+        return json_lib.dumps(log_obj)
+
 # Configure logging
+json_handler = logging.FileHandler(config.LOG_FILE.replace('.log', '_structured.json'))
+json_handler.setFormatter(StructuredFormatter())
+
+standard_handler = logging.StreamHandler()
+standard_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(config.LOG_FILE),
-        logging.StreamHandler()
-    ]
+    handlers=[json_handler, standard_handler]
 )
 logger = logging.getLogger(__name__)
+
+# Error tracking metrics
+error_metrics = defaultdict(lambda: {'count': 0, 'last_error': None})
+
+def track_error(error_type: str, session_id: str = None, details: str = None):
+    """Track error occurrences for monitoring"""
+    error_metrics[error_type]['count'] += 1
+    error_metrics[error_type]['last_error'] = {
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'session_id': session_id,
+        'details': details
+    }
+    
+    logger.error(
+        f"Error tracked: {error_type}",
+        extra={
+            'error_type': error_type,
+            'session_id': session_id,
+            'details': details
+        }
+    )
 
 # Validate configuration
 config.validate()
@@ -56,6 +106,29 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # Initialize OpenAI client with server-side API key
 whisper_gpt = OpenAIWhisperGPT(config.OPENAI_API_KEY)
 
+# Session-based rate limiting
+session_request_times = defaultdict(list)
+SESSION_RATE_LIMIT = 10  # Maximum requests per session per minute
+SESSION_TIME_WINDOW = 60  # Time window in seconds
+
+def check_session_rate_limit(session_id: str) -> bool:
+    """Check if session has exceeded rate limit"""
+    current_time = time.time()
+    
+    # Clean up old requests outside the time window
+    session_request_times[session_id] = [
+        t for t in session_request_times[session_id] 
+        if current_time - t < SESSION_TIME_WINDOW
+    ]
+    
+    # Check if limit exceeded
+    if len(session_request_times[session_id]) >= SESSION_RATE_LIMIT:
+        return False
+    
+    # Record this request
+    session_request_times[session_id].append(current_time)
+    return True
+
 class SessionStart(BaseModel):
     session_id: str
 
@@ -66,13 +139,32 @@ def validate_file_upload(file: UploadFile) -> None:
     """Validate uploaded file"""
     # Check file size (read in chunks to avoid memory issues)
     file_size = 0
+    file_content = b''
     for chunk in file.file:
         file_size += len(chunk)
+        file_content += chunk
         if file_size > config.max_file_size_bytes:
             raise HTTPException(
                 status_code=413,
                 detail=f"File too large. Maximum size is {config.MAX_FILE_SIZE_MB}MB"
             )
+    
+    # Check minimum file size (audio should be at least 1KB for ~0.5 seconds)
+    MIN_FILE_SIZE = 1024  # 1KB minimum
+    if file_size < MIN_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="Audio is too short. Please record for at least 1 second."
+        )
+    
+    # Check maximum recording duration (5MB is roughly 5 minutes of audio)
+    MAX_REASONABLE_SIZE = 5 * 1024 * 1024  # 5MB for reasonable recording
+    if file_size > MAX_REASONABLE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="Audio is too long. Please keep recordings under 5 minutes."
+        )
+    
     file.file.seek(0)  # Reset file pointer
     
     # Check content type
@@ -90,7 +182,46 @@ def generate_session_token() -> str:
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+    # Check basic app health
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "checks": {}
+    }
+    
+    # Check OpenAI API connectivity
+    try:
+        # Test with a simple completion
+        test_response = await whisper_gpt.chat("Say 'ok'")
+        health_status["checks"]["openai_api"] = "healthy"
+    except Exception as e:
+        health_status["checks"]["openai_api"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+        logger.error(f"OpenAI API health check failed: {str(e)}")
+    
+    # Check database connectivity
+    try:
+        from database import db
+        test_session = db.get_session("health_check_test")
+        health_status["checks"]["database"] = "healthy"
+    except Exception as e:
+        health_status["checks"]["database"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+        logger.error(f"Database health check failed: {str(e)}")
+    
+    return health_status
+
+@app.get("/metrics")
+async def get_metrics():
+    """Get error metrics and statistics"""
+    return {
+        "error_metrics": dict(error_metrics),
+        "session_rate_limits": {
+            session_id: len(times) 
+            for session_id, times in session_request_times.items()
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 @app.post("/start")
 @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
@@ -142,6 +273,13 @@ async def step_handler(
     session_token: str = Form(...)
 ):
     """Handle voice input for current step"""
+    # Check session-based rate limit
+    if not check_session_rate_limit(session_id):
+        raise HTTPException(
+            status_code=429, 
+            detail="Too many requests. Please wait a moment before trying again."
+        )
+    
     # Validate session token
     session = get_session(session_id)
     if session.get("token") != session_token:
@@ -175,12 +313,19 @@ async def step_handler(
         try:
             store_step_result(session, step, result)
         except ValidationError as e:
-            logger.warning(f"Validation error for session {session_id}: {str(e)}")
+            logger.warning(f"Validation error for session {session_id}: {str(e)}", 
+                         extra={'session_id': session_id, 'step': step})
+            track_error('validation_error', session_id, str(e))
+            error_message = str(e)
+            # Extract the actual error message if it's wrapped
+            if "Failed to process response:" in error_message or "Invalid response format:" in error_message:
+                error_message = error_message.split(": ", 1)[-1] if ": " in error_message else error_message
+            
             return {
                 "transcription": transcript,
                 "result": None,
-                "next_prompt": f"❗ I couldn't extract the required information. Please try again.",
-                "error": e.errors() if hasattr(e, 'errors') else str(e),
+                "next_prompt": f"❗ {error_message}",
+                "error": error_message,
                 "current_step": session["step"],
                 "can_generate": can_generate_invoice(session),
                 "items_count": len(session.get("items", []))
@@ -204,7 +349,9 @@ async def step_handler(
         }
         
     except Exception as e:
-        logger.error(f"Error processing step for session {session_id}: {str(e)}")
+        logger.error(f"Error processing step for session {session_id}: {str(e)}",
+                    extra={'session_id': session_id, 'step': session.get('step')})
+        track_error('step_processing_error', session_id, str(e))
         raise HTTPException(status_code=500, detail="Failed to process step")
     finally:
         # Clean up temporary file
