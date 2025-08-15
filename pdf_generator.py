@@ -21,8 +21,8 @@ PDF_OUTPUT_DIR = Path("generated_invoices")
 PDF_OUTPUT_DIR.mkdir(exist_ok=True)
 
 def format_currency(amount: float) -> str:
-    """Format amount as currency"""
-    return f"${amount:,.2f}"
+    """Format amount as currency in British Pounds"""
+    return f"£{amount:,.2f}"
 
 def calculate_due_date(invoice_date: str, payment_due_days: int) -> str:
     """Calculate payment due date"""
@@ -107,8 +107,8 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
         elements.append(details_table)
         elements.append(Spacer(1, 0.3*inch))
         
-        # Bill To Section
-        elements.append(Paragraph("Bill To:", heading_style))
+        # Invoice To Section
+        elements.append(Paragraph("Invoice To:", heading_style))
         elements.append(Paragraph(invoice_data.client.name, normal_style))
         elements.append(Paragraph(invoice_data.client.address, normal_style))
         elements.append(Spacer(1, 0.3*inch))
@@ -116,54 +116,111 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
         # Line Items Table
         elements.append(Paragraph("Items:", heading_style))
         
-        # Prepare line items data
-        items_data = [['Description', 'Quantity', 'Unit', 'Unit Price', 'Total']]
-        subtotal = 0.0
+        # Prepare line items data with enhanced columns
+        items_data = [['Description', 'Amount', 'VAT Rate', 'VAT Amount', 'Net Amount']]
         
+        subtotal = 0.0
+        total_vat = 0.0
+        total_cis_deduction = 0.0
+        total_retention_deduction = 0.0
+        total_discount = 0.0
+        
+        # Process each item with proper calculations
         for item in invoice_data.items:
-            # Items have 'value' not 'quantity * unit_price'
-            total = item.value
-            subtotal += total
+            base_amount = item.value
+            vat_amount = base_amount * (item.vat_rate / 100) if item.vat_rate > 0 else 0.0
+            net_amount = base_amount + vat_amount
+            
+            # Track deductions for summary section
+            cis_deduction = base_amount * (item.cis_rate / 100) if item.cis_rate > 0 else 0.0
+            retention_deduction = base_amount * (item.retention_rate / 100) if item.retention_rate > 0 else 0.0
+            discount_amount = base_amount * (item.discount_rate / 100) if item.discount_rate > 0 else 0.0
+            
+            total_cis_deduction += cis_deduction
+            total_retention_deduction += retention_deduction
+            total_discount += discount_amount
+            
+            subtotal += base_amount
+            total_vat += vat_amount
+            
+            # Add item row with capitalized description
+            vat_display = f"{item.vat_rate:.1f}%" if item.vat_rate > 0 else "0%"
+            capitalized_description = item.description.capitalize() if item.description else ""
             items_data.append([
-                item.description,
-                "1",  # Default quantity
-                "Item",  # Default unit
-                format_currency(item.value),
-                format_currency(total)
+                capitalized_description,
+                format_currency(base_amount),
+                vat_display,
+                format_currency(vat_amount),
+                format_currency(net_amount)
             ])
         
-        # Add subtotal, tax, and total rows
-        tax_rate = 0.0  # Can be made configurable
-        tax_amount = subtotal * tax_rate
-        total = subtotal + tax_amount
+        # Calculate totals
+        gross_total = subtotal + total_vat
+        net_payable = gross_total - total_cis_deduction - total_retention_deduction - total_discount
         
+        # Add summary rows
+        items_data.append(['', '', '', '', ''])  # Empty row for spacing
         items_data.append(['', '', '', 'Subtotal:', format_currency(subtotal)])
-        if tax_rate > 0:
-            items_data.append(['', '', '', f'Tax ({tax_rate*100}%):', format_currency(tax_amount)])
-        items_data.append(['', '', '', 'Total:', format_currency(total)])
         
-        # Create items table
-        items_table = Table(items_data, colWidths=[3*inch, 0.75*inch, 0.75*inch, 1*inch, 1*inch])
+        if total_vat > 0:
+            items_data.append(['', '', '', 'Total VAT:', format_currency(total_vat)])
+        
+        items_data.append(['', '', '', 'Gross Total:', format_currency(gross_total)])
+        
+        # Add deductions
+        if total_discount > 0:
+            items_data.append(['', '', '', 'Less: Discount:', f'-{format_currency(total_discount)}'])
+        
+        if total_cis_deduction > 0:
+            items_data.append(['', '', '', 'Less: CIS Deduction:', f'-{format_currency(total_cis_deduction)}'])
+        
+        if total_retention_deduction > 0:
+            items_data.append(['', '', '', 'Less: Retention:', f'-{format_currency(total_retention_deduction)}'])
+        
+        items_data.append(['', '', '', 'Net Payable:', format_currency(net_payable)])
+        
+        # Create items table with updated column widths
+        items_table = Table(items_data, colWidths=[2.5*inch, 1*inch, 0.8*inch, 1*inch, 1.2*inch])
+        
+        # Calculate row positions for styling
+        header_row = 0
+        data_start = 1
+        summary_start = len(items_data) - (
+            7 +  # Base summary rows (empty, subtotal, vat, gross, net payable)
+            (1 if total_discount > 0 else 0) +
+            (1 if total_cis_deduction > 0 else 0) +
+            (1 if total_retention_deduction > 0 else 0)
+        )
+        net_payable_row = len(items_data) - 1
+        
         items_table.setStyle(TableStyle([
             # Header row
-            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#E5E9F0')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('BACKGROUND', (0, header_row), (-1, header_row), HexColor('#E5E9F0')),
+            ('FONTNAME', (0, header_row), (-1, header_row), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, header_row), (-1, header_row), 10),
+            ('ALIGN', (0, header_row), (-1, header_row), 'CENTER'),
             
             # Data rows
-            ('FONTNAME', (0, 1), (-1, -4), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('ALIGN', (1, 1), (2, -1), 'CENTER'),
-            ('ALIGN', (3, 1), (4, -1), 'RIGHT'),
+            ('FONTNAME', (0, data_start), (-1, summary_start-1), 'Helvetica'),
+            ('FONTSIZE', (0, data_start), (-1, summary_start-1), 9),
+            ('ALIGN', (1, data_start), (-1, summary_start-1), 'RIGHT'),
+            ('ALIGN', (0, data_start), (0, summary_start-1), 'LEFT'),
             
-            # Totals rows
-            ('FONTNAME', (3, -3), (-1, -1), 'Helvetica-Bold'),
-            ('LINEABOVE', (3, -3), (-1, -3), 1, colors.black),
+            # Summary section
+            ('FONTNAME', (3, summary_start), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (3, summary_start), (-1, -1), 9),
+            ('ALIGN', (3, summary_start), (-1, -1), 'RIGHT'),
+            ('ALIGN', (4, summary_start), (-1, -1), 'RIGHT'),
             
-            # Grid
-            ('GRID', (0, 0), (-1, -4), 0.5, HexColor('#D8DEE9')),
-            ('BOX', (0, 0), (-1, -1), 1, HexColor('#2E3440')),
+            # Net Payable row (make it prominent)
+            ('BACKGROUND', (3, net_payable_row), (-1, net_payable_row), HexColor('#E5E9F0')),
+            ('FONTSIZE', (3, net_payable_row), (-1, net_payable_row), 11),
+            ('LINEABOVE', (3, net_payable_row), (-1, net_payable_row), 2, colors.black),
+            
+            # Grid lines
+            ('GRID', (0, header_row), (-1, summary_start-1), 0.5, HexColor('#D8DEE9')),
+            ('BOX', (0, header_row), (-1, -1), 1, HexColor('#2E3440')),
+            ('LINEABOVE', (3, summary_start+1), (-1, summary_start+1), 1, colors.black),
         ]))
         
         elements.append(items_table)
@@ -173,7 +230,19 @@ async def generate_invoice_pdf(session: Dict[str, Any]) -> Path:
         elements.append(Paragraph("Payment Terms:", heading_style))
         # Calculate days until due
         days_until_due = (invoice_data.details.due_date - datetime.now().date()).days
-        payment_terms_text = f"Payment due within {days_until_due} days"
+        payment_terms_text = f"Payment due within {days_until_due} days."
+        
+        # Add notes about deductions if applicable (each on new line)
+        if total_cis_deduction > 0 or total_retention_deduction > 0 or total_discount > 0:
+            payment_terms_text += "<br/><br/><strong>Notes:</strong><br/>"
+            
+            if total_cis_deduction > 0:
+                payment_terms_text += f"• CIS deduction of {format_currency(total_cis_deduction)} applied<br/>"
+            if total_retention_deduction > 0:
+                payment_terms_text += f"• Retention of {format_currency(total_retention_deduction)} held<br/>"
+            if total_discount > 0:
+                payment_terms_text += f"• Discount of {format_currency(total_discount)} applied<br/>"
+        
         elements.append(Paragraph(payment_terms_text, normal_style))
         
         # Build PDF

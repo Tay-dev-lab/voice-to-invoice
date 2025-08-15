@@ -94,9 +94,17 @@ Return ONLY raw JSON, no markdown formatting or explanations:
 {{"name": "string", "address": "string"}}"""
             
         elif step == "invoice_details":
+            current_year = datetime.now().year
             return f"""Extract invoice type and payment due date from: "{transcript}"
             The invoice type should be either "deposit" or "works_completed".
-            Parse any date mentioned (e.g., "30 days", "end of month", specific date).
+            Parse any date mentioned. Current year is {current_year}.
+            
+            For relative dates:
+            - "30 days" = 30 days from today
+            - "end of month" = last day of current month
+            - "august" or "august this year" = August {current_year}
+            - "next month" = next month in {current_year}
+            - If only month mentioned without year, assume {current_year}
             
 Return ONLY raw JSON, no markdown formatting or explanations:
 {{"type": "deposit", "due_date": "YYYY-MM-DD"}}"""
@@ -129,6 +137,79 @@ Return ONLY raw JSON, no markdown formatting or explanations:
         return "Invoice information complete! Click 'Create Invoice PDF' to generate your invoice."
     else:
         return "Please continue with the next step."
+
+def parse_intelligent_date(date_string: str) -> datetime.date:
+    """Parse date with intelligent handling of relative dates and current year assumptions"""
+    import re
+    
+    current_year = datetime.now().year
+    current_date = datetime.now().date()
+    
+    # Clean the date string
+    date_string = date_string.strip().lower()
+    
+    # Handle relative date patterns
+    if "today" in date_string:
+        return current_date
+    elif "tomorrow" in date_string:
+        return current_date + timedelta(days=1)
+    elif re.search(r'\b(\d+)\s*days?\b', date_string):
+        # Extract number of days
+        days_match = re.search(r'\b(\d+)\s*days?\b', date_string)
+        days = int(days_match.group(1))
+        return current_date + timedelta(days=days)
+    elif "end of month" in date_string or "month end" in date_string:
+        # Last day of current month
+        next_month = current_date.replace(day=28) + timedelta(days=4)
+        return next_month - timedelta(days=next_month.day)
+    elif "next month" in date_string:
+        # 30 days from now
+        return current_date + timedelta(days=30)
+    
+    # Handle month names with current year assumption
+    month_mapping = {
+        'january': 1, 'jan': 1, 'february': 2, 'feb': 2, 'march': 3, 'mar': 3,
+        'april': 4, 'apr': 4, 'may': 5, 'june': 6, 'jun': 6,
+        'july': 7, 'jul': 7, 'august': 8, 'aug': 8, 'september': 9, 'sep': 9,
+        'october': 10, 'oct': 10, 'november': 11, 'nov': 11, 'december': 12, 'dec': 12
+    }
+    
+    # Check for month names
+    for month_name, month_num in month_mapping.items():
+        if month_name in date_string:
+            # Extract day if present
+            day_match = re.search(r'\b(\d{1,2})\b', date_string)
+            day = int(day_match.group(1)) if day_match else 1
+            
+            try:
+                return datetime(current_year, month_num, day).date()
+            except ValueError:
+                # Invalid day for month, use last day of month
+                if month_num == 2:
+                    day = 28
+                elif month_num in [4, 6, 9, 11]:
+                    day = 30
+                else:
+                    day = 31
+                return datetime(current_year, month_num, day).date()
+    
+    # Try basic datetime parsing with year correction
+    try:
+        # Try common formats
+        for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y']:
+            try:
+                parsed_date = datetime.strptime(date_string, fmt).date()
+                # Fix year if it's in the past
+                if parsed_date.year < current_year and parsed_date.year > 2020:
+                    parsed_date = parsed_date.replace(year=current_year)
+                return parsed_date
+            except ValueError:
+                continue
+    except:
+        pass
+    
+    # If all parsing fails, default to 30 days from now
+    return current_date + timedelta(days=30)
 
 def clean_json_response(response: str) -> str:
     """Clean GPT response to extract JSON, handling various formats"""
@@ -232,11 +313,16 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
                 )
             
             try:
-                due_date = datetime.fromisoformat(details_data["due_date"]).date()
+                # First try ISO format, then fall back to intelligent parsing
+                if details_data["due_date"] and len(details_data["due_date"]) == 10 and "-" in details_data["due_date"]:
+                    due_date = datetime.fromisoformat(details_data["due_date"]).date()
+                else:
+                    # Use intelligent parsing for relative dates
+                    due_date = parse_intelligent_date(details_data["due_date"])
             except:
                 raise InputValidationError(
                     f"Invalid date format '{details_data.get('due_date')}'. "
-                    "Please specify a clear due date like '30 days' or 'end of month'."
+                    "Please specify a clear due date like '30 days', 'end of month', or 'August 15th'."
                 )
             
             # Create InvoiceDetails instance
