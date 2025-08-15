@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 import shutil
 import uuid
 from pathlib import Path
@@ -18,7 +18,8 @@ from config import config
 from whisper_gpt import OpenAIWhisperGPT
 from session_store import (
     get_session, advance_step, reset_session, 
-    step_prompt, store_step_result, can_generate_invoice
+    step_prompt, store_step_result, can_generate_invoice,
+    InputValidationError
 )
 from pdf_generator import generate_invoice_pdf
 
@@ -312,7 +313,7 @@ async def step_handler(
         # Store step result
         try:
             store_step_result(session, step, result)
-        except ValidationError as e:
+        except InputValidationError as e:
             logger.warning(f"Validation error for session {session_id}: {str(e)}", 
                          extra={'session_id': session_id, 'step': step})
             track_error('validation_error', session_id, str(e))

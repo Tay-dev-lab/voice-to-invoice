@@ -9,6 +9,11 @@ from models import Invoice, InvoiceDetails, ClientInfo, InvoiceItem
 
 logger = logging.getLogger(__name__)
 
+# Custom exception for input validation errors
+class InputValidationError(Exception):
+    """Custom exception for input validation errors with user-friendly messages"""
+    pass
+
 # Define the step flow for invoice creation
 STEP_FLOW = [
     "welcome",           # Step 1: Welcome screen with button
@@ -170,12 +175,12 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
             
             # Detailed validation with specific error messages
             if not client_data.get("name"):
-                raise ValidationError(
+                raise InputValidationError(
                     "Client name is missing. Please say the full name clearly. "
                     "Example: 'John Smith' or 'ABC Company Ltd'"
                 )
             if not client_data.get("address"):
-                raise ValidationError(
+                raise InputValidationError(
                     "Client address is missing. Please provide the complete address. "
                     "Example: '123 Main Street, London, SW1A 1AA'"
                 )
@@ -205,20 +210,34 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
                 else:
                     raise json.JSONDecodeError("Could not parse invoice details", cleaned_result, 0)
             
-            # Parse the due date
-            if "due_date" in details_data:
-                try:
-                    due_date = datetime.fromisoformat(details_data["due_date"]).date()
-                except:
-                    # If parsing fails, default to 30 days from now
-                    due_date = (datetime.now(timezone.utc) + timedelta(days=30)).date()
-            else:
-                due_date = (datetime.now(timezone.utc) + timedelta(days=30)).date()
+            # Validate that we have required fields before processing
+            if not details_data.get("type"):
+                raise InputValidationError(
+                    "Invoice type is missing. Please clearly state whether this is a "
+                    "'deposit invoice' or 'works completed invoice'."
+                )
             
-            # Validate invoice type
-            invoice_type = details_data.get("type", "works_completed")
+            invoice_type = details_data.get("type")
             if invoice_type not in ["deposit", "works_completed"]:
-                invoice_type = "works_completed"
+                raise InputValidationError(
+                    f"Invalid invoice type '{invoice_type}'. Please say either "
+                    "'deposit invoice' or 'works completed invoice'."
+                )
+            
+            # Parse and validate the due date
+            if not details_data.get("due_date"):
+                raise InputValidationError(
+                    "Payment due date is missing. Please specify when payment is due. "
+                    "Examples: 'in 30 days', 'end of month', 'November 15th'"
+                )
+            
+            try:
+                due_date = datetime.fromisoformat(details_data["due_date"]).date()
+            except:
+                raise InputValidationError(
+                    f"Invalid date format '{details_data.get('due_date')}'. "
+                    "Please specify a clear due date like '30 days' or 'end of month'."
+                )
             
             # Create InvoiceDetails instance
             details = InvoiceDetails(
@@ -248,7 +267,7 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
                         item_data["vat_rate"] = float(vat_match.group(1))
                 else:
                     # If we can't parse, provide helpful error message
-                    raise ValidationError(
+                    raise InputValidationError(
                         "I couldn't understand the item details. Please clearly state: "
                         "1) What the item is (description), "
                         "2) The amount/value in pounds. "
@@ -267,12 +286,12 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
             
             # Validate that we have at least description and value
             if not item.description:
-                raise ValidationError(
+                raise InputValidationError(
                     "Item description is missing. Please describe what work or product this is for. "
                     "Example: 'Website development for homepage redesign'"
                 )
             if item.value <= 0:
-                raise ValidationError(
+                raise InputValidationError(
                     f"Item value must be a positive amount. You said: {item.value}. "
                     "Please state the amount clearly. Example: 'One thousand five hundred pounds' or '1500 pounds'"
                 )
@@ -291,26 +310,26 @@ def store_step_result(session: Dict[str, Any], step: str, result: str) -> None:
         logger.error(f"Failed to parse JSON response for step {step}: {str(e)}")
         # Provide step-specific error messages
         if step == "client_info":
-            raise ValidationError(
+            raise InputValidationError(
                 "I couldn't understand the client information. "
                 "Please clearly state the client's name and full address."
             )
         elif step == "invoice_details":
-            raise ValidationError(
+            raise InputValidationError(
                 "I couldn't understand the invoice details. "
                 "Please clearly state whether this is a deposit or works completed invoice, "
                 "and when payment is due (e.g., '30 days' or 'end of month')."
             )
         elif step.startswith("item_"):
-            raise ValidationError(
+            raise InputValidationError(
                 "I couldn't understand the item details. "
                 "Please clearly state what the item is and its value in pounds."
             )
         else:
-            raise ValidationError(f"I couldn't understand your response. Please try again.")
+            raise InputValidationError(f"I couldn't understand your response. Please try again.")
     except Exception as e:
         logger.error(f"Error storing step result for {step}: {str(e)}")
-        raise ValidationError(f"Failed to process response: {str(e)}")
+        raise InputValidationError(f"Failed to process response: {str(e)}")
 
 def can_generate_invoice(session: Dict[str, Any]) -> bool:
     """Check if session has enough data to generate an invoice"""
