@@ -95,7 +95,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Configure CORS with secure settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tay-dev-lab.github.io", "http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "https://tay-dev-lab.github.io", 
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "https://*.railway.app"  # Allow Railway subdomains
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
@@ -411,4 +416,10 @@ async def generate_invoice(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=config.HOST, port=config.PORT)
+    import os
+    
+    # Use Railway's PORT environment variable or fallback to config
+    port = int(os.environ.get("PORT", config.PORT))
+    host = "0.0.0.0"  # Railway requires 0.0.0.0
+    
+    uvicorn.run(app, host=host, port=port)

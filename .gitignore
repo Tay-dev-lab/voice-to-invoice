@@ -10,3 +10,9 @@ wheels/
 .venv
 .env
 generated_invoices/
+
+# Deployment and runtime files
+uploads/
+*.log
+*.db
+.DS_Store
