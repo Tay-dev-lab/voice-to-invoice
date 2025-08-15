@@ -82,12 +82,16 @@ def track_error(error_type: str, session_id: str = None, details: str = None):
         }
     )
 
-# Validate configuration - only validate API key at startup for Railway compatibility
+# Configuration validation - API key is optional for client-side key mode
 try:
-    config.validate()
-except ValueError as e:
+    # Only validate non-API key settings
+    if config.SECRET_KEY == "change-this-in-production":
+        import warnings
+        warnings.warn("Using default SECRET_KEY. Please set a secure key in production.")
+    
+    logger.info("Configuration validated successfully")
+except Exception as e:
     logger.warning(f"Configuration validation warning: {e}")
-    # Don't fail startup, but log the issue
 
 app = FastAPI(title="Voice to Invoice API")
 
@@ -115,13 +119,13 @@ app.add_middleware(
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-# Initialize OpenAI client with server-side API key
-# Validate API key before creating client
-if not config.OPENAI_API_KEY:
-    logger.error("OPENAI_API_KEY not set. Please set it in Railway environment variables.")
-    whisper_gpt = None
+# OpenAI client will be created per-request with user-provided API key
+# Server-side API key is optional for this client-side key application
+server_api_key = config.OPENAI_API_KEY
+if server_api_key:
+    logger.info("Server-side OpenAI API key configured (optional)")
 else:
-    whisper_gpt = OpenAIWhisperGPT(config.OPENAI_API_KEY)
+    logger.info("No server-side OpenAI API key - will use client-provided keys")
 
 # Session-based rate limiting
 session_request_times = defaultdict(list)
@@ -206,19 +210,19 @@ async def health_check():
         "checks": {}
     }
     
-    # Check OpenAI API connectivity
-    try:
-        if whisper_gpt:
-            # Test with a simple completion
-            test_response = await whisper_gpt.chat("Say 'ok'")
-            health_status["checks"]["openai_api"] = "healthy"
-        else:
-            health_status["checks"]["openai_api"] = "not configured: OPENAI_API_KEY missing"
+    # Check OpenAI API configuration
+    if server_api_key:
+        try:
+            # Test server-side API key if available
+            test_client = OpenAIWhisperGPT(server_api_key)
+            test_response = await test_client.chat("Say 'ok'")
+            health_status["checks"]["openai_api"] = "server-side key healthy"
+        except Exception as e:
+            health_status["checks"]["openai_api"] = f"server-side key unhealthy: {str(e)}"
             health_status["status"] = "degraded"
-    except Exception as e:
-        health_status["checks"]["openai_api"] = f"unhealthy: {str(e)}"
-        health_status["status"] = "degraded"
-        logger.error(f"OpenAI API health check failed: {str(e)}")
+            logger.error(f"Server-side OpenAI API health check failed: {str(e)}")
+    else:
+        health_status["checks"]["openai_api"] = "client-side keys only (normal)"
     
     # Check database connectivity
     try:
@@ -291,7 +295,8 @@ async def step_handler(
     request: Request,
     file: UploadFile = File(...),
     session_id: str = Form(...),
-    session_token: str = Form(...)
+    session_token: str = Form(...),
+    openai_api_key: str = Form(None)
 ):
     """Handle voice input for current step"""
     # Check session-based rate limit
@@ -317,24 +322,28 @@ async def step_handler(
     temp_path = UPLOAD_DIR / f"{uuid.uuid4()}.webm"
     
     try:
-        # Check if OpenAI client is available
-        if not whisper_gpt:
+        # Determine which API key to use
+        api_key_to_use = openai_api_key or server_api_key
+        if not api_key_to_use:
             raise HTTPException(
-                status_code=503, 
-                detail="OpenAI API not configured. Please contact administrator."
+                status_code=400, 
+                detail="OpenAI API key required. Please provide your API key."
             )
+        
+        # Create OpenAI client with the appropriate API key
+        client = OpenAIWhisperGPT(api_key_to_use)
         
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
         # Transcribe audio
-        transcript = await whisper_gpt.transcribe(str(temp_path))
+        transcript = await client.transcribe(str(temp_path))
         logger.info(f"Transcribed audio for session {session_id}, step {session['step']}")
         
         # Process with GPT
         step = session["step"]
         prompt = step_prompt(step, transcript)
-        result = await whisper_gpt.chat(prompt)
+        result = await client.chat(prompt)
         logger.info(f"GPT response for step {step}: {repr(result)}")
         
         # Store step result

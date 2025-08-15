@@ -352,3 +352,15 @@
 {"timestamp": "2025-08-15T18:48:46.228021+00:00", "level": "INFO", "logger": "session_store", "message": "Built invoice data for session 0eb3e7b8-bdd4-4bff-b81f-190edd214f31", "module": "session_store", "function": "get_invoice_data", "line": 455}
 {"timestamp": "2025-08-15T18:48:46.237839+00:00", "level": "INFO", "logger": "pdf_generator", "message": "Generated PDF invoice: generated_invoices/invoice_INV-0EB3E7B8_20250815_194846.pdf", "module": "pdf_generator", "function": "generate_invoice_pdf", "line": 254}
 {"timestamp": "2025-08-15T18:48:46.237975+00:00", "level": "INFO", "logger": "main", "message": "Generated PDF for session 0eb3e7b8-bdd4-4bff-b81f-190edd214f31", "module": "main", "function": "generate_invoice", "line": 386}
+{"timestamp": "2025-08-15T20:17:20.349767+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:17:20.349770+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:17:34.686509+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:17:34.686510+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:17:47.034583+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:17:47.034591+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:18:50.284417+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:18:50.284429+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 122}
+{"timestamp": "2025-08-15T20:19:06.918866+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-15T20:19:06.919617+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 126}
+{"timestamp": "2025-08-15T20:19:07.009078+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-15T20:19:07.009782+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 126}

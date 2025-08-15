@@ -583,6 +583,11 @@
     
     <!-- Welcome/Step 1 Controls -->
     <div id="welcomeControls">
+      <div class="form-group">
+        <label for="apiKeyInput">OpenAI API Key (required)</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-..." style="margin-bottom: 15px;">
+        <small style="color: #8FBCBB;">Your API key is stored locally and never sent to our servers except for OpenAI processing.</small>
+      </div>
       <button id="createInvoiceBtn" class="primary">📄 Create Invoice</button>
     </div>
     
@@ -718,6 +723,7 @@
     const stepCounter = document.getElementById('stepCounter');
     const promptEl = document.getElementById('prompt');
     const createInvoiceBtn = document.getElementById('createInvoiceBtn');
+    const apiKeyInput = document.getElementById('apiKeyInput');
     const welcomeControls = document.getElementById('welcomeControls');
     const recordingSection = document.getElementById('recordingSection');
     const recordingIndicator = document.getElementById('recordingIndicator');
@@ -744,6 +750,27 @@
     const logoPreview = document.getElementById('logoPreview');
     const removeLogo = document.getElementById('removeLogo');
     const clearData = document.getElementById('clearData');
+    
+    // API Key Management
+    function getApiKey() {
+      return apiKeyInput.value.trim() || localStorage.getItem('openai_api_key');
+    }
+    
+    function saveApiKey(apiKey) {
+      if (apiKey) {
+        localStorage.setItem('openai_api_key', apiKey);
+      }
+    }
+    
+    function loadSavedApiKey() {
+      const savedKey = localStorage.getItem('openai_api_key');
+      if (savedKey) {
+        apiKeyInput.value = savedKey;
+      }
+    }
+    
+    // Load saved API key on page load
+    loadSavedApiKey();
     
     // Company Settings Functions
     function loadCompanyData() {
@@ -1044,6 +1071,24 @@
     // Create Invoice button click - Step 1
     createInvoiceBtn.onclick = async () => {
       try {
+        // Validate API key
+        const apiKey = getApiKey();
+        if (!apiKey) {
+          showMessage('Please enter your OpenAI API key to continue.', 'error');
+          apiKeyInput.focus();
+          return;
+        }
+        
+        // Validate API key format
+        if (!apiKey.startsWith('sk-')) {
+          showMessage('Invalid API key format. OpenAI API keys start with "sk-".', 'error');
+          apiKeyInput.focus();
+          return;
+        }
+        
+        // Save API key for future use
+        saveApiKey(apiKey);
+        
         createInvoiceBtn.disabled = true;
         createInvoiceBtn.innerHTML = '<span class="loading"></span>Starting...';
         
@@ -1121,10 +1166,17 @@
     
     // Submit audio function
     async function submitAudio(audioBlob) {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        showMessage('API key is missing. Please refresh and enter your API key.', 'error');
+        return;
+      }
+      
       const formData = new FormData();
       formData.append('file', audioBlob, 'recording.webm');
       formData.append('session_id', sessionId);
       formData.append('session_token', sessionToken);
+      formData.append('openai_api_key', apiKey);
       
       recordBtn.disabled = true;
       recordBtn.innerHTML = '<span class="loading"></span>Processing...';
