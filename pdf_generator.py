@@ -11,7 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 
-from session_store_improved import get_invoice_data
+from session_store import get_invoice_data
 from database import db
 
 logger = logging.getLogger(__name__)

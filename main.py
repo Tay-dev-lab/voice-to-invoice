@@ -14,7 +14,10 @@ import secrets
 
 from config import config
 from whisper_gpt import OpenAIWhisperGPT
-from session_store import get_session, advance_step, reset_session, STEP_FLOW, step_prompt, store_step_result
+from session_store import (
+    get_session, advance_step, reset_session, 
+    step_prompt, store_step_result, can_generate_invoice
+)
 from pdf_generator import generate_invoice_pdf
 
 # Configure logging
@@ -95,15 +98,24 @@ async def health_check():
 @app.post("/start")
 @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
 async def start_session(request: Request, payload: SessionStart):
-    """Start a new invoice session"""
+    """Start a new invoice session - called when user clicks 'Create Invoice'"""
     try:
         session = get_session(payload.session_id)
-        session["step"] = STEP_FLOW[1]  # skip 'start' and go to client_info
+        # Move from welcome to client_info when user clicks the button
+        if session["step"] == "welcome":
+            session["step"] = "client_info"
         session["token"] = generate_session_token()
+        
+        # Save the session
+        from session_store import save_session
+        save_session(payload.session_id, session)
+        
         logger.info(f"Started session: {payload.session_id}")
         return {
             "session_token": session["token"],
-            "next_prompt": step_prompt(session["step"])
+            "next_prompt": step_prompt(session["step"]),
+            "current_step": session["step"],
+            "can_generate": can_generate_invoice(session)
         }
     except Exception as e:
         logger.error(f"Error starting session: {str(e)}")
@@ -112,11 +124,14 @@ async def start_session(request: Request, payload: SessionStart):
 @app.post("/reset")
 @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute")
 async def reset(request: Request, payload: SessionReset):
-    """Reset a session"""
+    """Reset a session to start over"""
     try:
         reset_session(payload.session_id)
         logger.info(f"Reset session: {payload.session_id}")
-        return {"detail": "Session reset successfully"}
+        return {
+            "detail": "Session reset successfully",
+            "next_prompt": step_prompt("welcome")
+        }
     except Exception as e:
         logger.error(f"Error resetting session: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to reset session")
@@ -129,11 +144,15 @@ async def step_handler(
     session_id: str = Form(...),
     session_token: str = Form(...)
 ):
-    """Handle a step in the invoice creation process"""
+    """Handle voice input for current step"""
     # Validate session token
     session = get_session(session_id)
     if session.get("token") != session_token:
         raise HTTPException(status_code=401, detail="Invalid session token")
+    
+    # Don't process if we're on welcome step
+    if session["step"] == "welcome":
+        raise HTTPException(status_code=400, detail="Please click 'Create Invoice' to start")
     
     # Validate file upload
     validate_file_upload(file)
@@ -162,24 +181,28 @@ async def step_handler(
             return {
                 "transcription": transcript,
                 "result": None,
-                "next_prompt": f"❗ I couldn't extract the required information. Please try again for step '{step}'.",
-                "error": e.errors()
+                "next_prompt": f"❗ I couldn't extract the required information. Please try again.",
+                "error": e.errors() if hasattr(e, 'errors') else str(e),
+                "current_step": session["step"],
+                "can_generate": can_generate_invoice(session),
+                "items_count": len(session.get("items", []))
             }
         
         # Advance to next step
-        if session["step"].startswith("item_") and len(session["items"]) >= 30:
-            session["step"] = "done"
-        elif session["step"] != "done":
-            advance_step(session)
+        next_step = advance_step(session)
+        next_prompt = step_prompt(next_step)
         
-        next_prompt = step_prompt(session["step"])
+        # Check if we can generate invoice (after first item)
+        can_generate = can_generate_invoice(session)
         
         return {
             "transcription": transcript,
             "result": result,
             "next_prompt": next_prompt,
-            "items_collected": len(session.get("items", [])),
-            "current_step": session["step"]
+            "current_step": next_step,
+            "can_generate": can_generate,
+            "items_count": len(session.get("items", [])),
+            "is_done": next_step == "done"
         }
         
     except Exception as e:
@@ -201,9 +224,12 @@ async def generate_invoice(request: Request, payload: PDFRequest, session_token:
         if session.get("token") != session_token:
             raise HTTPException(status_code=401, detail="Invalid session token")
         
-        # Check if session is complete
-        if session.get("step") != "done":
-            raise HTTPException(status_code=400, detail="Session not complete")
+        # Check if we can generate invoice
+        if not can_generate_invoice(session):
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot generate invoice. Need at least client info, invoice details, and one item."
+            )
         
         # Generate PDF
         pdf_path = await generate_invoice_pdf(session)
@@ -213,7 +239,7 @@ async def generate_invoice(request: Request, payload: PDFRequest, session_token:
         return FileResponse(
             path=pdf_path,
             media_type="application/pdf",
-            filename=f"invoice_{payload.session_id}.pdf"
+            filename=f"invoice_{session['reference_number']}.pdf"
         )
         
     except HTTPException:

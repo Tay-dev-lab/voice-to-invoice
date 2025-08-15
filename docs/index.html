@@ -42,35 +42,14 @@
       font-size: 14px;
     }
     
-    .step-indicator {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 30px;
-      padding: 0 20px;
-    }
-    
-    .step {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
+    .step-counter {
       background: #E5E9F0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
+      padding: 10px 20px;
+      border-radius: 25px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-weight: 600;
       color: #4C566A;
-      transition: all 0.3s;
-    }
-    
-    .step.active {
-      background: #5E81AC;
-      color: white;
-      transform: scale(1.1);
-    }
-    
-    .step.completed {
-      background: #A3BE8C;
-      color: white;
     }
     
     .prompt-box {
@@ -99,6 +78,7 @@
       transition: all 0.3s;
       margin: 5px;
       font-weight: 600;
+      min-width: 150px;
     }
     
     button:hover:not(:disabled) {
@@ -123,6 +103,14 @@
       background: #8FAC70;
     }
     
+    button.secondary {
+      background: #D08770;
+    }
+    
+    button.secondary:hover:not(:disabled) {
+      background: #B8734A;
+    }
+    
     button.danger {
       background: #BF616A;
     }
@@ -135,20 +123,29 @@
       display: flex;
       gap: 10px;
       margin-top: 20px;
+      flex-wrap: wrap;
     }
     
     .button-group button {
       flex: 1;
+      min-width: 140px;
+    }
+    
+    .recording-section {
+      margin-top: 20px;
+      padding: 20px;
+      background: #F0F4F8;
+      border-radius: 12px;
     }
     
     .recording-indicator {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 15px;
       background: #FFEBEE;
       border-radius: 8px;
-      margin: 20px 0;
+      margin-bottom: 15px;
     }
     
     .recording-indicator.active {
@@ -157,7 +154,7 @@
     
     @keyframes pulse {
       0% { opacity: 1; }
-      50% { opacity: 0.5; }
+      50% { opacity: 0.7; }
       100% { opacity: 1; }
     }
     
@@ -178,7 +175,7 @@
     
     audio {
       width: 100%;
-      margin-top: 20px;
+      margin-top: 15px;
       border-radius: 8px;
     }
     
@@ -200,19 +197,17 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     
-    .items-counter {
-      background: #E5E9F0;
-      padding: 10px 15px;
+    .items-summary {
+      background: #E8F5E9;
+      border-left: 4px solid #A3BE8C;
+      padding: 15px;
       border-radius: 8px;
       margin-top: 15px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
     
-    .items-counter span {
-      color: #4C566A;
-      font-weight: 600;
+    .items-summary h4 {
+      color: #2E7D32;
+      margin-bottom: 5px;
     }
     
     .error-message {
@@ -235,16 +230,21 @@
     
     .loading {
       display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid #E5E9F0;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #E5E9F0;
       border-radius: 50%;
       border-top-color: #5E81AC;
       animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
     }
     
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+    
+    .hidden {
+      display: none;
     }
     
     @media (max-width: 600px) {
@@ -271,26 +271,24 @@
     <h1>🎙️ Voice to Invoice</h1>
     <p class="subtitle">Create professional invoices using your voice - Free & Simple</p>
     
-    <div class="step-indicator" id="stepIndicator">
-      <div class="step" data-step="1">1</div>
-      <div class="step" data-step="2">2</div>
-      <div class="step" data-step="3">3</div>
-      <div class="step" data-step="4">4</div>
-      <div class="step" data-step="5">✓</div>
+    <div class="step-counter" id="stepCounter">
+      Step 1: Welcome
     </div>
     
     <div class="prompt-box">
-      <h2 id="prompt">Welcome! Click "Start Invoice" to begin creating your invoice using voice commands.</h2>
+      <h2 id="prompt">Would you like to create an invoice?</h2>
     </div>
     
-    <div id="mainControls">
-      <button id="startInvoiceBtn" class="primary">🚀 Start Invoice</button>
+    <!-- Welcome/Step 1 Controls -->
+    <div id="welcomeControls">
+      <button id="createInvoiceBtn" class="primary">📄 Create Invoice</button>
     </div>
     
-    <div id="recordingControls" style="display: none;">
-      <div class="recording-indicator" id="recordingIndicator" style="display: none;">
+    <!-- Recording Controls -->
+    <div id="recordingSection" class="recording-section hidden">
+      <div id="recordingIndicator" class="recording-indicator hidden">
         <div class="pulse-dot"></div>
-        <span>Recording... Speak clearly</span>
+        <span>Recording... Speak clearly and click Stop when done</span>
       </div>
       
       <div class="button-group">
@@ -298,26 +296,28 @@
         <button id="stopBtn" disabled>⏹️ Stop</button>
       </div>
       
-      <audio id="audioPlayback" controls style="display: none;"></audio>
+      <audio id="audioPlayback" controls class="hidden"></audio>
     </div>
     
-    <div id="completionControls" style="display: none;">
-      <button id="createPdfBtn" class="primary">📄 Generate Invoice PDF</button>
-      <button id="resetBtn" class="danger">🔄 Start Over</button>
+    <!-- Action Buttons -->
+    <div id="actionButtons" class="button-group hidden">
+      <button id="generatePdfBtn" class="primary hidden">📄 Create Invoice PDF</button>
+      <button id="resetBtn" class="danger">🔄 Reset</button>
     </div>
     
-    <div class="items-counter" id="itemsCounter" style="display: none;">
-      <span>Items Added:</span>
-      <span id="itemCount">0</span>
+    <!-- Items Summary -->
+    <div id="itemsSummary" class="items-summary hidden">
+      <h4>Invoice Items Added: <span id="itemsCount">0</span></h4>
     </div>
     
-    <div id="transcription" class="result-box" style="display: none;">
-      <h3>📝 Transcription</h3>
+    <!-- Results -->
+    <div id="transcription" class="result-box hidden">
+      <h3>📝 What you said:</h3>
       <div id="transcriptionText"></div>
     </div>
     
-    <div id="response" class="result-box" style="display: none;">
-      <h3>✅ Processed Data</h3>
+    <div id="response" class="result-box hidden">
+      <h3>✅ Extracted information:</h3>
       <div id="responseText"></div>
     </div>
     
@@ -325,54 +325,59 @@
   </div>
 
   <script>
-    // Configuration - Update this for your deployment
+    // Configuration - Update for your deployment
     const API_BASE_URL = window.location.hostname === 'localhost' 
       ? 'http://localhost:8000' 
-      : 'https://your-api-domain.com'; // Update this for production
+      : 'https://your-api-domain.com';
     
     let mediaRecorder;
     let audioChunks = [];
     let sessionId = localStorage.getItem('session_id') || crypto.randomUUID();
     let sessionToken = null;
-    let currentStep = 1;
+    let currentStep = "welcome";
     let isRecording = false;
     
     localStorage.setItem('session_id', sessionId);
     
     // DOM Elements
+    const stepCounter = document.getElementById('stepCounter');
     const promptEl = document.getElementById('prompt');
-    const startInvoiceBtn = document.getElementById('startInvoiceBtn');
+    const createInvoiceBtn = document.getElementById('createInvoiceBtn');
+    const welcomeControls = document.getElementById('welcomeControls');
+    const recordingSection = document.getElementById('recordingSection');
+    const recordingIndicator = document.getElementById('recordingIndicator');
     const recordBtn = document.getElementById('recordBtn');
     const stopBtn = document.getElementById('stopBtn');
     const audioPlayback = document.getElementById('audioPlayback');
+    const actionButtons = document.getElementById('actionButtons');
+    const generatePdfBtn = document.getElementById('generatePdfBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const itemsSummary = document.getElementById('itemsSummary');
+    const itemsCount = document.getElementById('itemsCount');
     const transcriptionEl = document.getElementById('transcription');
     const transcriptionText = document.getElementById('transcriptionText');
     const responseEl = document.getElementById('response');
     const responseText = document.getElementById('responseText');
-    const createPdfBtn = document.getElementById('createPdfBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const itemsCounter = document.getElementById('itemsCounter');
-    const itemCount = document.getElementById('itemCount');
     const messages = document.getElementById('messages');
-    const mainControls = document.getElementById('mainControls');
-    const recordingControls = document.getElementById('recordingControls');
-    const completionControls = document.getElementById('completionControls');
-    const recordingIndicator = document.getElementById('recordingIndicator');
-    const stepIndicator = document.getElementById('stepIndicator');
     
-    function updateStepIndicator(step) {
-      const steps = stepIndicator.querySelectorAll('.step');
-      steps.forEach((el, index) => {
-        if (index < step - 1) {
-          el.classList.add('completed');
-          el.classList.remove('active');
-        } else if (index === step - 1) {
-          el.classList.add('active');
-          el.classList.remove('completed');
-        } else {
-          el.classList.remove('active', 'completed');
-        }
-      });
+    function updateStepCounter(step, itemCount = 0) {
+      const stepMap = {
+        'welcome': 'Step 1: Welcome',
+        'client_info': 'Step 2: Client Information', 
+        'invoice_details': 'Step 3: Invoice Details',
+        'item_1': 'Step 4: Item 1',
+        'item_2': 'Step 5: Item 2',
+        'item_3': 'Step 6: Item 3'
+      };
+      
+      if (step.startsWith('item_')) {
+        const itemNum = step.split('_')[1];
+        stepCounter.textContent = `Step ${3 + parseInt(itemNum)}: Item ${itemNum}`;
+      } else if (step === 'done') {
+        stepCounter.textContent = `Complete: ${itemCount} items added`;
+      } else {
+        stepCounter.textContent = stepMap[step] || `Step: ${step}`;
+      }
     }
     
     function showMessage(text, type = 'info') {
@@ -383,12 +388,42 @@
       messages.appendChild(messageDiv);
       
       setTimeout(() => {
-        messageDiv.remove();
+        if (messageDiv.parentNode) {
+          messageDiv.remove();
+        }
       }, 5000);
     }
     
-    startInvoiceBtn.onclick = async () => {
+    function updateUI(step, canGenerate, itemCount = 0) {
+      currentStep = step;
+      updateStepCounter(step, itemCount);
+      
+      // Show/hide sections based on step
+      if (step === 'welcome') {
+        welcomeControls.classList.remove('hidden');
+        recordingSection.classList.add('hidden');
+        actionButtons.classList.add('hidden');
+        itemsSummary.classList.add('hidden');
+      } else {
+        welcomeControls.classList.add('hidden');
+        recordingSection.classList.remove('hidden');
+        actionButtons.classList.remove('hidden');
+        
+        // Show generate button if we can generate
+        if (canGenerate) {
+          generatePdfBtn.classList.remove('hidden');
+          itemsSummary.classList.remove('hidden');
+          itemsCount.textContent = itemCount;
+        }
+      }
+    }
+    
+    // Create Invoice button click - Step 1
+    createInvoiceBtn.onclick = async () => {
       try {
+        createInvoiceBtn.disabled = true;
+        createInvoiceBtn.innerHTML = '<span class="loading"></span>Starting...';
+        
         const response = await fetch(`${API_BASE_URL}/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -400,19 +435,20 @@
         if (response.ok) {
           sessionToken = data.session_token;
           promptEl.textContent = data.next_prompt;
-          mainControls.style.display = 'none';
-          recordingControls.style.display = 'block';
-          currentStep = 1;
-          updateStepIndicator(currentStep);
-          showMessage('Invoice session started! Click Record to continue.', 'success');
+          updateUI(data.current_step, data.can_generate, data.items_count || 0);
+          showMessage('Ready to record! Click Record and speak your answer.', 'success');
         } else {
           showMessage('Failed to start session. Please try again.', 'error');
         }
       } catch (error) {
-        showMessage('Connection error. Please check your internet connection.', 'error');
+        showMessage('Connection error. Please check your internet.', 'error');
+      } finally {
+        createInvoiceBtn.disabled = false;
+        createInvoiceBtn.innerHTML = '📄 Create Invoice';
       }
     };
     
+    // Record button click
     recordBtn.onclick = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -427,9 +463,9 @@
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
           const audioUrl = URL.createObjectURL(audioBlob);
           audioPlayback.src = audioUrl;
-          audioPlayback.style.display = 'block';
+          audioPlayback.classList.remove('hidden');
           
-          // Automatically submit after recording stops
+          // Auto-upload after recording stops
           await submitAudio(audioBlob);
         };
         
@@ -437,13 +473,14 @@
         isRecording = true;
         recordBtn.disabled = true;
         stopBtn.disabled = false;
-        recordingIndicator.style.display = 'flex';
+        recordingIndicator.classList.remove('hidden');
         recordingIndicator.classList.add('active');
       } catch (error) {
         showMessage('Microphone access denied. Please allow microphone access.', 'error');
       }
     };
     
+    // Stop button click
     stopBtn.onclick = () => {
       if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
@@ -452,15 +489,19 @@
         recordBtn.disabled = false;
         stopBtn.disabled = true;
         recordingIndicator.classList.remove('active');
-        recordingIndicator.style.display = 'none';
+        recordingIndicator.classList.add('hidden');
       }
     };
     
+    // Submit audio function
     async function submitAudio(audioBlob) {
       const formData = new FormData();
       formData.append('file', audioBlob, 'recording.webm');
       formData.append('session_id', sessionId);
       formData.append('session_token', sessionToken);
+      
+      recordBtn.disabled = true;
+      recordBtn.innerHTML = '<span class="loading"></span>Processing...';
       
       try {
         const response = await fetch(`${API_BASE_URL}/step`, {
@@ -473,54 +514,53 @@
         if (response.ok) {
           // Update UI with results
           if (data.transcription) {
-            transcriptionEl.style.display = 'block';
+            transcriptionEl.classList.remove('hidden');
             transcriptionText.textContent = data.transcription;
           }
           
           if (data.result) {
-            responseEl.style.display = 'block';
-            responseText.textContent = JSON.stringify(JSON.parse(data.result), null, 2);
+            responseEl.classList.remove('hidden');
+            try {
+              const parsed = JSON.parse(data.result);
+              responseText.textContent = JSON.stringify(parsed, null, 2);
+            } catch {
+              responseText.textContent = data.result;
+            }
           }
           
-          if (data.items_collected !== undefined && data.items_collected > 0) {
-            itemsCounter.style.display = 'flex';
-            itemCount.textContent = data.items_collected;
-          }
-          
-          // Update prompt and step
+          // Update prompt and UI
           promptEl.textContent = data.next_prompt;
+          updateUI(data.current_step, data.can_generate, data.items_count || 0);
           
-          // Update step indicator
-          if (data.current_step === 'client_info') currentStep = 2;
-          else if (data.current_step === 'payment_terms') currentStep = 3;
-          else if (data.current_step.startsWith('item_')) currentStep = 4;
-          else if (data.current_step === 'done') currentStep = 5;
-          
-          updateStepIndicator(currentStep);
-          
-          // Show completion controls if done
-          if (data.current_step === 'done') {
-            recordingControls.style.display = 'none';
-            completionControls.style.display = 'block';
-            showMessage('Invoice data complete! Click "Generate PDF" to create your invoice.', 'success');
+          // Show success message
+          if (data.current_step.startsWith('item_')) {
+            showMessage(`Item ${data.items_count} added successfully!`, 'success');
+          } else if (data.is_done) {
+            showMessage('All information collected! Click "Create Invoice PDF" to generate your invoice.', 'success');
+          } else {
+            showMessage('Information captured successfully!', 'success');
           }
           
           // Handle validation errors
           if (data.error) {
-            showMessage(data.next_prompt, 'error');
+            showMessage('Please provide the information again more clearly.', 'error');
           }
         } else {
           showMessage('Failed to process audio. Please try again.', 'error');
         }
       } catch (error) {
-        showMessage('Connection error. Please check your internet connection.', 'error');
+        showMessage('Connection error. Please check your internet.', 'error');
+      } finally {
+        recordBtn.disabled = false;
+        recordBtn.innerHTML = '🎙️ Record';
       }
     }
     
-    createPdfBtn.onclick = async () => {
+    // Generate PDF button click
+    generatePdfBtn.onclick = async () => {
       try {
-        createPdfBtn.disabled = true;
-        createPdfBtn.innerHTML = '<span class="loading"></span> Generating...';
+        generatePdfBtn.disabled = true;
+        generatePdfBtn.innerHTML = '<span class="loading"></span>Generating...';
         
         const formData = new FormData();
         formData.append('session_id', sessionId);
@@ -542,20 +582,22 @@
           a.remove();
           window.URL.revokeObjectURL(url);
           
-          showMessage('Invoice PDF generated successfully!', 'success');
+          showMessage('Invoice PDF generated and downloaded successfully!', 'success');
         } else {
-          showMessage('Failed to generate PDF. Please ensure all information is complete.', 'error');
+          const errorData = await response.json();
+          showMessage(errorData.detail || 'Failed to generate PDF.', 'error');
         }
       } catch (error) {
-        showMessage('Connection error. Please check your internet connection.', 'error');
+        showMessage('Connection error while generating PDF.', 'error');
       } finally {
-        createPdfBtn.disabled = false;
-        createPdfBtn.innerHTML = '📄 Generate Invoice PDF';
+        generatePdfBtn.disabled = false;
+        generatePdfBtn.innerHTML = '📄 Create Invoice PDF';
       }
     };
     
+    // Reset button click
     resetBtn.onclick = async () => {
-      if (confirm('Are you sure you want to start over? All current invoice data will be lost.')) {
+      if (confirm('Are you sure you want to start over? All invoice data will be lost.')) {
         try {
           await fetch(`${API_BASE_URL}/reset`, {
             method: 'POST',
@@ -565,16 +607,11 @@
           
           // Reset UI
           sessionToken = null;
-          currentStep = 1;
-          updateStepIndicator(currentStep);
-          promptEl.textContent = 'Welcome! Click "Start Invoice" to begin creating your invoice using voice commands.';
-          mainControls.style.display = 'block';
-          recordingControls.style.display = 'none';
-          completionControls.style.display = 'none';
-          transcriptionEl.style.display = 'none';
-          responseEl.style.display = 'none';
-          itemsCounter.style.display = 'none';
-          audioPlayback.style.display = 'none';
+          promptEl.textContent = 'Would you like to create an invoice?';
+          updateUI('welcome', false, 0);
+          transcriptionEl.classList.add('hidden');
+          responseEl.classList.add('hidden');
+          audioPlayback.classList.add('hidden');
           
           // Generate new session ID
           sessionId = crypto.randomUUID();
@@ -582,7 +619,7 @@
           
           showMessage('Session reset. Ready to create a new invoice!', 'success');
         } catch (error) {
-          showMessage('Failed to reset session. Please refresh the page.', 'error');
+          showMessage('Failed to reset. Please refresh the page.', 'error');
         }
       }
     };
