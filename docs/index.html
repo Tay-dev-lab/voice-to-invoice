@@ -590,8 +590,20 @@
     <div id="welcomeControls">
       <div class="form-group">
         <label for="apiKeyInput">OpenAI API Key (required)</label>
-        <input type="password" id="apiKeyInput" placeholder="sk-..." style="margin-bottom: 15px;">
-        <small style="color: #8FBCBB;">Your API key is stored locally and never sent to our servers except for OpenAI processing.</small>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+          <input type="text" 
+                 id="apiKeyInput" 
+                 placeholder="sk-proj-..." 
+                 autocomplete="off"
+                 autocorrect="off"
+                 autocapitalize="off"
+                 spellcheck="false"
+                 data-form-type="other"
+                 style="flex: 1; font-family: monospace; font-size: 12px;">
+          <button type="button" id="toggleApiKey" style="padding: 10px; min-width: auto;">👁️</button>
+          <button type="button" id="pasteApiKey" style="padding: 10px; min-width: auto;">📋</button>
+        </div>
+        <small style="color: #8FBCBB;">Your API key is stored locally in your browser only. <span id="apiKeyStatus"></span></small>
       </div>
       <button id="createInvoiceBtn" class="primary">📄 Create Invoice</button>
     </div>
@@ -729,6 +741,9 @@
     const promptEl = document.getElementById('prompt');
     const createInvoiceBtn = document.getElementById('createInvoiceBtn');
     const apiKeyInput = document.getElementById('apiKeyInput');
+    const toggleApiKey = document.getElementById('toggleApiKey');
+    const pasteApiKey = document.getElementById('pasteApiKey');
+    const apiKeyStatus = document.getElementById('apiKeyStatus');
     const welcomeControls = document.getElementById('welcomeControls');
     const recordingSection = document.getElementById('recordingSection');
     const recordingIndicator = document.getElementById('recordingIndicator');
@@ -757,22 +772,102 @@
     const clearData = document.getElementById('clearData');
     
     // API Key Management
+    let apiKeyVisible = false;
+    let realApiKey = '';
+    
     function getApiKey() {
-      return apiKeyInput.value.trim() || localStorage.getItem('openai_api_key');
+      // Get the real value, not the masked display
+      const key = realApiKey || apiKeyInput.value.trim() || localStorage.getItem('openai_api_key') || '';
+      
+      // Validate and warn about corruption
+      if (key && key.includes('*')) {
+        console.error('API key contains asterisks - likely corrupted!');
+        showMessage('⚠️ API key appears corrupted. Please re-enter it.', 'error');
+        return null;
+      }
+      
+      return key;
     }
     
     function saveApiKey(apiKey) {
-      if (apiKey) {
+      if (apiKey && !apiKey.includes('*')) {
         localStorage.setItem('openai_api_key', apiKey);
+        realApiKey = apiKey;
+        updateApiKeyStatus();
       }
     }
     
     function loadSavedApiKey() {
       const savedKey = localStorage.getItem('openai_api_key');
-      if (savedKey) {
-        apiKeyInput.value = savedKey;
+      if (savedKey && !savedKey.includes('*')) {
+        realApiKey = savedKey;
+        apiKeyInput.value = maskApiKey(savedKey);
+        updateApiKeyStatus();
       }
     }
+    
+    function maskApiKey(key) {
+      if (!key || key.length < 20) return key;
+      return apiKeyVisible ? key : `${key.substring(0, 10)}...${key.substring(key.length - 4)}`;
+    }
+    
+    function updateApiKeyStatus() {
+      if (realApiKey) {
+        apiKeyStatus.textContent = `✓ Key saved (${realApiKey.length} chars)`;
+        apiKeyStatus.style.color = '#A3BE8C';
+      } else {
+        apiKeyStatus.textContent = '';
+      }
+    }
+    
+    // Toggle API key visibility
+    toggleApiKey.onclick = () => {
+      apiKeyVisible = !apiKeyVisible;
+      const key = realApiKey || apiKeyInput.value;
+      apiKeyInput.value = maskApiKey(key);
+      toggleApiKey.textContent = apiKeyVisible ? '🔒' : '👁️';
+    };
+    
+    // Paste API key from clipboard
+    pasteApiKey.onclick = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text.startsWith('sk-')) {
+          realApiKey = text.trim();
+          apiKeyInput.value = maskApiKey(realApiKey);
+          saveApiKey(realApiKey);
+          showMessage('✓ API key pasted successfully', 'success');
+        } else {
+          showMessage('Invalid API key in clipboard', 'error');
+        }
+      } catch (err) {
+        // Fallback for browsers that don't support clipboard API
+        showMessage('Please paste manually (Cmd/Ctrl + V)', 'info');
+      }
+    };
+    
+    // Handle manual input
+    apiKeyInput.oninput = (e) => {
+      const value = e.target.value;
+      // Only update realApiKey if it's not a masked value
+      if (!value.includes('...')) {
+        realApiKey = value;
+        updateApiKeyStatus();
+      }
+    };
+    
+    // Handle focus/blur for masking
+    apiKeyInput.onfocus = () => {
+      if (realApiKey && !apiKeyVisible) {
+        apiKeyInput.value = realApiKey;
+      }
+    };
+    
+    apiKeyInput.onblur = () => {
+      if (realApiKey && !apiKeyVisible) {
+        apiKeyInput.value = maskApiKey(realApiKey);
+      }
+    };
     
     // Load saved API key on page load
     loadSavedApiKey();
@@ -1102,6 +1197,15 @@
           return;
         }
         
+        // Check for corruption
+        if (apiKey.includes('*')) {
+          showMessage('API key appears corrupted (contains asterisks). Please re-enter it.', 'error');
+          realApiKey = '';
+          apiKeyInput.value = '';
+          apiKeyInput.focus();
+          return;
+        }
+        
         // Validate API key format
         if (!apiKey.startsWith('sk-')) {
           showMessage('Invalid API key format. OpenAI API keys start with "sk-".', 'error');
@@ -1109,8 +1213,16 @@
           return;
         }
         
+        // Validate minimum length
+        if (apiKey.length < 40) {
+          showMessage(`API key too short (${apiKey.length} chars). Please enter the complete key.`, 'error');
+          apiKeyInput.focus();
+          return;
+        }
+        
         // Save API key for future use
         saveApiKey(apiKey);
+        console.log(`Using API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)} (${apiKey.length} chars)`);
         
         createInvoiceBtn.disabled = true;
         createInvoiceBtn.innerHTML = '<span class="loading"></span>Starting...';
@@ -1194,6 +1306,15 @@
         showMessage('API key is missing. Please refresh and enter your API key.', 'error');
         return;
       }
+      
+      // Double-check for corruption before sending
+      if (apiKey.includes('*')) {
+        showMessage('⚠️ API key corrupted. Please re-enter your API key.', 'error');
+        console.error('Attempted to send corrupted API key with asterisks');
+        return;
+      }
+      
+      console.log(`Sending API key to backend: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)} (${apiKey.length} chars)`);
       
       const formData = new FormData();
       formData.append('file', audioBlob, 'recording.webm');

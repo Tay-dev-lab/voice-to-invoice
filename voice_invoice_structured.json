@@ -364,3 +364,15 @@
 {"timestamp": "2025-08-15T20:19:06.919617+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 126}
 {"timestamp": "2025-08-15T20:19:07.009078+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
 {"timestamp": "2025-08-15T20:19:07.009782+00:00", "level": "INFO", "logger": "main", "message": "Server-side OpenAI API key configured (optional)", "module": "main", "function": "<module>", "line": 126}
+{"timestamp": "2025-08-17T13:34:26.011889+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-17T13:34:26.011886+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-17T13:34:26.012925+00:00", "level": "INFO", "logger": "main", "message": "Application configured for client-side API keys only", "module": "main", "function": "<module>", "line": 124}
+{"timestamp": "2025-08-17T13:34:26.012933+00:00", "level": "INFO", "logger": "main", "message": "Application configured for client-side API keys only", "module": "main", "function": "<module>", "line": 124}
+{"timestamp": "2025-08-17T13:34:46.282615+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-17T13:34:46.282894+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-17T13:34:46.283345+00:00", "level": "INFO", "logger": "main", "message": "Application configured for client-side API keys only", "module": "main", "function": "<module>", "line": 124}
+{"timestamp": "2025-08-17T13:34:46.283681+00:00", "level": "INFO", "logger": "main", "message": "Application configured for client-side API keys only", "module": "main", "function": "<module>", "line": 124}
+{"timestamp": "2025-08-17T13:35:13.623831+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-17T13:35:13.624488+00:00", "level": "INFO", "logger": "main", "message": "Application configured for client-side API keys only", "module": "main", "function": "<module>", "line": 124}
+{"timestamp": "2025-08-17T13:35:13.718365+00:00", "level": "INFO", "logger": "main", "message": "Configuration validated successfully", "module": "main", "function": "<module>", "line": 92}
+{"timestamp": "2025-08-17T13:35:13.719106+00:00", "level": "INFO", "logger": "main", "message": "Application configured for client-side API keys only", "module": "main", "function": "<module>", "line": 124}

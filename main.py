@@ -120,12 +120,8 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 # OpenAI client will be created per-request with user-provided API key
-# Server-side API key is optional for this client-side key application
-server_api_key = config.OPENAI_API_KEY
-if server_api_key:
-    logger.info("Server-side OpenAI API key configured (optional)")
-else:
-    logger.info("No server-side OpenAI API key - will use client-provided keys")
+# This app uses ONLY client-provided API keys for security
+logger.info("Application configured for client-side API keys only")
 
 # Session-based rate limiting
 session_request_times = defaultdict(list)
@@ -211,18 +207,7 @@ async def health_check():
     }
     
     # Check OpenAI API configuration
-    if server_api_key:
-        try:
-            # Test server-side API key if available
-            test_client = OpenAIWhisperGPT(server_api_key)
-            test_response = await test_client.chat("Say 'ok'")
-            health_status["checks"]["openai_api"] = "server-side key healthy"
-        except Exception as e:
-            health_status["checks"]["openai_api"] = f"server-side key unhealthy: {str(e)}"
-            health_status["status"] = "degraded"
-            logger.error(f"Server-side OpenAI API health check failed: {str(e)}")
-    else:
-        health_status["checks"]["openai_api"] = "client-side keys only (normal)"
+    health_status["checks"]["openai_api"] = "client-side keys only (normal)"
     
     # Check database connectivity
     try:
@@ -322,13 +307,26 @@ async def step_handler(
     temp_path = UPLOAD_DIR / f"{uuid.uuid4()}.webm"
     
     try:
-        # Determine which API key to use
-        api_key_to_use = openai_api_key or server_api_key
-        if not api_key_to_use:
+        # Validate client-provided API key
+        if not openai_api_key:
             raise HTTPException(
                 status_code=400, 
                 detail="OpenAI API key required. Please provide your API key."
             )
+        
+        # Log key details for debugging (safely)
+        logger.info(f"Received API key: {openai_api_key[:10]}...{openai_api_key[-4:]} (length: {len(openai_api_key)})")
+        
+        # Check for corruption
+        if '*' in openai_api_key:
+            logger.error(f"Corrupted API key received with asterisks")
+            raise HTTPException(
+                status_code=400,
+                detail="API key appears corrupted (contains asterisks). Please re-enter your API key in the app."
+            )
+        
+        # Sanitize the API key
+        api_key_to_use = openai_api_key.strip()
         
         # Create OpenAI client with the appropriate API key
         client = OpenAIWhisperGPT(api_key_to_use)
