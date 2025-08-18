@@ -612,7 +612,7 @@
     <div id="recordingSection" class="recording-section hidden">
       <div id="recordingIndicator" class="recording-indicator hidden">
         <div class="pulse-dot"></div>
-        <span>Recording... Speak clearly and click Stop when done</span>
+        <span>🎙️ Recording... Hold device close, speak clearly and slowly</span>
       </div>
       
       <div class="button-group">
@@ -871,6 +871,48 @@
     
     // Load saved API key on page load
     loadSavedApiKey();
+    
+    // Audio Quality Validation
+    function validateAudioQuality(audioBlob) {
+      const minSize = 1000; // Minimum 1KB for meaningful audio
+      const maxSize = 10 * 1024 * 1024; // Maximum 10MB
+      
+      if (audioBlob.size < minSize) {
+        showMessage('⚠️ Recording too short or quiet. Please speak clearly for at least 2-3 seconds.', 'error');
+        return false;
+      }
+      
+      if (audioBlob.size > maxSize) {
+        showMessage('⚠️ Recording too long. Please keep recordings under 2 minutes.', 'error');
+        return false;
+      }
+      
+      console.log(`Audio validated: ${audioBlob.size} bytes, ${audioBlob.type}`);
+      return true;
+    }
+    
+    // Transcription Quality Check
+    function isTranscriptionValid(text) {
+      if (!text || text.trim().length < 3) {
+        return false;
+      }
+      
+      // Check for non-Latin scripts (Korean, Chinese, etc.)
+      const hasNonLatin = /[\u3400-\u9FBF\uAC00-\uD7AF\u0400-\u04FF\u0370-\u03FF]/.test(text);
+      if (hasNonLatin) {
+        console.warn('Detected non-Latin characters in transcription:', text);
+        return false;
+      }
+      
+      // Check for mostly numbers or special characters
+      const alphaRatio = (text.match(/[a-zA-Z]/g) || []).length / text.length;
+      if (alphaRatio < 0.3) {
+        console.warn('Transcription has too few letters:', text);
+        return false;
+      }
+      
+      return true;
+    }
     
     // Company Settings Functions
     function loadCompanyData() {
@@ -1257,16 +1299,50 @@
         // Clear any persistent error messages when starting a new recording
         clearPersistentError();
         
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+        // Enhanced audio constraints for better mobile recording
+        const audioConstraints = {
+          audio: {
+            sampleRate: 16000,        // Optimal for speech recognition
+            channelCount: 1,          // Mono audio for better quality
+            echoCancellation: true,   // Reduce echo and feedback
+            noiseSuppression: true,   // Filter background noise
+            autoGainControl: true,    // Normalize audio levels
+            // Additional mobile-specific settings
+            googEchoCancellation: true,
+            googNoiseSuppression: true,
+            googAutoGainControl: true,
+            googHighpassFilter: true
+          }
+        };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
+        
+        // Use better audio format if supported
+        const options = {};
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options.mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options.mimeType = 'audio/mp4';
+        }
+        
+        mediaRecorder = new MediaRecorder(stream, options);
         audioChunks = [];
+        
+        console.log(`Recording with: ${mediaRecorder.mimeType}`);
         
         mediaRecorder.ondataavailable = event => {
           audioChunks.push(event.data);
         };
         
         mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const mimeType = mediaRecorder.mimeType || 'audio/webm';
+          const audioBlob = new Blob(audioChunks, { type: mimeType });
+          
+          // Validate audio quality before processing
+          if (!validateAudioQuality(audioBlob)) {
+            return; // validateAudioQuality shows error messages
+          }
+          
           const audioUrl = URL.createObjectURL(audioBlob);
           audioPlayback.src = audioUrl;
           audioPlayback.classList.remove('hidden');
@@ -1338,6 +1414,17 @@
           if (data.transcription) {
             transcriptionEl.classList.remove('hidden');
             transcriptionText.textContent = data.transcription;
+            
+            // Check transcription quality and offer retry
+            if (!isTranscriptionValid(data.transcription)) {
+              showMessage(
+                '⚠️ Poor audio quality detected. The transcription may be inaccurate. ' +
+                'Please try recording again and speak clearly, close to your device.',
+                'error',
+                true  // persistent
+              );
+              return;
+            }
           }
           
           // Check for validation errors FIRST before showing success

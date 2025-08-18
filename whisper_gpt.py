@@ -8,7 +8,10 @@ class OpenAIWhisperGPT:
         with open(file_path, "rb") as audio_file:
             response = self.client.audio.transcriptions.create(
                 model="whisper-1",
-                file=audio_file
+                file=audio_file,
+                language="en",  # Force English language detection
+                temperature=0,  # More deterministic/accurate output
+                prompt="This is an English speaker providing business information such as client names, company names, addresses, invoice details, and work descriptions for an invoice."
             )
         return response.text
 
