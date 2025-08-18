@@ -184,13 +184,20 @@ def validate_file_upload(file: UploadFile) -> None:
     
     file.file.seek(0)  # Reset file pointer
     
-    # Check content type
-    allowed_types = ["audio/webm", "audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"]
-    if file.content_type not in allowed_types:
+    # Check content type (handle codec specifications)
+    allowed_base_types = ["audio/webm", "audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"]
+    
+    # Extract base content type (remove codec specifications)
+    base_content_type = file.content_type.split(';')[0] if file.content_type else ""
+    
+    if base_content_type not in allowed_base_types:
+        logger.warning(f"Rejected file type: {file.content_type} (base: {base_content_type})")
         raise HTTPException(
             status_code=415,
-            detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+            detail=f"Invalid file type: {file.content_type}. Allowed base types: {', '.join(allowed_base_types)}"
         )
+    
+    logger.info(f"Accepted audio file: {file.content_type} (base: {base_content_type})")
 
 def generate_session_token() -> str:
     """Generate a secure session token"""
